@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Send, Clock, MapPin, Users, Image as ImageIcon, Archive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -19,6 +19,16 @@ import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import type { Event } from "@/lib/supabase"
 import { useAccessibility } from "@/components/accessibility-provider"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Define the form schema with Zod
 const eventFormSchema = z
@@ -40,17 +50,30 @@ const eventFormSchema = z
     start_date: z.date({
       required_error: "Start date is required.",
     }),
+    start_time: z.string({
+      required_error: "Start time is required.",
+    }),
     end_date: z.date({
       required_error: "End date is required.",
     }),
+    end_time: z.string({
+      required_error: "End time is required.",
+    }),
     registration_deadline: z.date().optional(),
     max_volunteers: z.number().int().positive().default(25),
-    status: z.enum(["draft", "published", "archived"], {
-      required_error: "Please select a status.",
-    }),
   })
-  .refine((data) => data.end_date >= data.start_date, {
-    message: "End date must be after start date",
+  .refine((data) => {
+    const startDateTime = new Date(data.start_date)
+    const [startHours, startMinutes] = data.start_time.split(":")
+    startDateTime.setHours(parseInt(startHours), parseInt(startMinutes))
+
+    const endDateTime = new Date(data.end_date)
+    const [endHours, endMinutes] = data.end_time.split(":")
+    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes))
+
+    return endDateTime >= startDateTime
+  }, {
+    message: "End date and time must be after start date and time",
     path: ["end_date"],
   })
 
@@ -61,6 +84,8 @@ export function EventForm({ event }: { event?: Event }) {
   const { toast } = useToast()
   const { speakText } = useAccessibility()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false)
 
   // Default values for the form
   const defaultValues: Partial<EventFormValues> = {
@@ -71,10 +96,11 @@ export function EventForm({ event }: { event?: Event }) {
     thumbnail_image: event?.thumbnail_image || "",
     event_category: event?.event_category || "A",
     start_date: event?.start_date ? new Date(event.start_date) : new Date(),
+    start_time: event?.start_date ? format(new Date(event.start_date), "HH:mm") : "09:00",
     end_date: event?.end_date ? new Date(event.end_date) : new Date(),
+    end_time: event?.end_date ? format(new Date(event.end_date), "HH:mm") : "17:00",
     registration_deadline: event?.registration_deadline ? new Date(event.registration_deadline) : undefined,
     max_volunteers: event?.max_volunteers || 25,
-    status: event?.status || "draft",
   }
 
   const form = useForm<EventFormValues>({
@@ -82,10 +108,19 @@ export function EventForm({ event }: { event?: Event }) {
     defaultValues,
   })
 
-  async function onSubmit(data: EventFormValues) {
+  async function onSubmit(data: EventFormValues, status: "draft" | "published" | "archived" = "draft") {
     setIsSubmitting(true)
 
     try {
+      // Combine date and time for start and end dates
+      const startDateTime = new Date(data.start_date)
+      const [startHours, startMinutes] = data.start_time.split(":")
+      startDateTime.setHours(parseInt(startHours), parseInt(startMinutes))
+
+      const endDateTime = new Date(data.end_date)
+      const [endHours, endMinutes] = data.end_time.split(":")
+      endDateTime.setHours(parseInt(endHours), parseInt(endMinutes))
+
       if (event) {
         // Update existing event
         const { error } = await supabase
@@ -97,11 +132,11 @@ export function EventForm({ event }: { event?: Event }) {
             description: data.description,
             thumbnail_image: data.thumbnail_image || null,
             event_category: data.event_category,
-            start_date: data.start_date.toISOString(),
-            end_date: data.end_date.toISOString(),
+            start_date: startDateTime.toISOString(),
+            end_date: endDateTime.toISOString(),
             registration_deadline: data.registration_deadline?.toISOString() || null,
             max_volunteers: data.max_volunteers,
-            status: data.status,
+            status,
           })
           .eq("id", event.id)
 
@@ -109,10 +144,14 @@ export function EventForm({ event }: { event?: Event }) {
 
         toast({
           title: "Event updated",
-          description: "The event has been updated successfully.",
+          description: status === "archived" 
+            ? "The event has been archived successfully."
+            : `The event has been ${status === "published" ? "published" : "updated"} successfully.`,
         })
 
-        speakText("Event updated successfully")
+        speakText(status === "archived" 
+          ? "Event archived successfully"
+          : `Event ${status === "published" ? "published" : "updated"} successfully`)
         router.push(`/dashboard/events/${event.id}`)
       } else {
         // Create new event
@@ -125,11 +164,11 @@ export function EventForm({ event }: { event?: Event }) {
             description: data.description,
             thumbnail_image: data.thumbnail_image || null,
             event_category: data.event_category,
-            start_date: data.start_date.toISOString(),
-            end_date: data.end_date.toISOString(),
+            start_date: startDateTime.toISOString(),
+            end_date: endDateTime.toISOString(),
             registration_deadline: data.registration_deadline?.toISOString() || null,
             max_volunteers: data.max_volunteers,
-            status: data.status,
+            status,
           })
           .select()
 
@@ -137,10 +176,10 @@ export function EventForm({ event }: { event?: Event }) {
 
         toast({
           title: "Event created",
-          description: "The event has been created successfully.",
+          description: `The event has been ${status === "published" ? "published" : "created"} successfully.`,
         })
 
-        speakText("Event created successfully")
+        speakText(`Event ${status === "published" ? "published" : "created"} successfully`)
         router.push(`/dashboard/events/${newEvent[0].id}`)
       }
     } catch (error) {
@@ -153,12 +192,14 @@ export function EventForm({ event }: { event?: Event }) {
       speakText("Error saving event")
     } finally {
       setIsSubmitting(false)
+      setShowPublishDialog(false)
+      setShowArchiveDialog(false)
     }
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit((data) => onSubmit(data, "draft"))} className="space-y-6">
         <FormField
           control={form.control}
           name="title"
@@ -182,7 +223,10 @@ export function EventForm({ event }: { event?: Event }) {
               <FormItem>
                 <FormLabel>Location</FormLabel>
                 <FormControl>
-                  <Input placeholder="Event location" {...field} />
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Event location" className="pl-9" {...field} />
+                  </div>
                 </FormControl>
                 <FormDescription>Where the event will take place.</FormDescription>
                 <FormMessage />
@@ -236,7 +280,10 @@ export function EventForm({ event }: { event?: Event }) {
             <FormItem>
               <FormLabel>Thumbnail Image URL</FormLabel>
               <FormControl>
-                <Input placeholder="https://example.com/image.jpg" {...field} />
+                <div className="relative">
+                  <ImageIcon className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="https://example.com/image.jpg" className="pl-9" {...field} />
+                </div>
               </FormControl>
               <FormDescription>URL for the event thumbnail image (optional).</FormDescription>
               <FormMessage />
@@ -278,12 +325,16 @@ export function EventForm({ event }: { event?: Event }) {
               <FormItem>
                 <FormLabel>Maximum Volunteers</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    min={1}
-                    {...field}
-                    onChange={(e) => field.onChange(Number.parseInt(e.target.value))}
-                  />
+                  <div className="relative">
+                    <Users className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={1}
+                      className="pl-9"
+                      {...field}
+                      onChange={(e) => field.onChange(Number.parseInt(e.target.value))}
+                    />
+                  </div>
                 </FormControl>
                 <FormDescription>Maximum number of volunteers needed.</FormDescription>
                 <FormMessage />
@@ -292,111 +343,123 @@ export function EventForm({ event }: { event?: Event }) {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="start_date"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Start Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                      >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>When the event starts.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="start_date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Start Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="end_date"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>End Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                      >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>When the event ends.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="start_time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Time</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input type="time" className="pl-9" {...field} />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-          <FormField
-            control={form.control}
-            name="registration_deadline"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Registration Deadline (Optional)</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                      >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>Last day for volunteers to register.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="end_date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>End Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="end_time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Time</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input type="time" className="pl-9" {...field} />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <FormField
           control={form.control}
-          name="status"
+          name="registration_deadline"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>The current status of the event.</FormDescription>
+            <FormItem className="flex flex-col">
+              <FormLabel>Registration Deadline (Optional)</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                    >
+                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>Last day for volunteers to register.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -416,12 +479,77 @@ export function EventForm({ event }: { event?: Event }) {
           >
             Cancel
           </Button>
+          {event && ( // Only show Archive button for existing events
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowArchiveDialog(true)}
+              disabled={isSubmitting}
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Archive Event
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowPublishDialog(true)}
+            disabled={isSubmitting}
+          >
+            <Send className="mr-2 h-4 w-4" />
+            Publish Event
+          </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {event ? "Update Event" : "Create Event"}
+            <Save className="mr-2 h-4 w-4" />
+            Save as Draft
           </Button>
         </div>
       </form>
+
+      <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to publish this event? When you publish the event, all registered volunteers will be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => form.handleSubmit((data) => onSubmit(data, "published"))()}
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Publish Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this event? This will hide the event from the main list and mark it as archived.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => form.handleSubmit((data) => onSubmit(data, "archived"))()}
+              disabled={isSubmitting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Archive Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Form>
   )
 }

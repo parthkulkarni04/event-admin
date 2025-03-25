@@ -170,9 +170,9 @@ create table public.volunteers (
 create trigger update_volunteers_updated_at BEFORE
 update on volunteers for EACH row
 execute FUNCTION update_updated_at_column ();
-
 create table public.volunteers_non_auth (
-  id uuid not null default gen_random_uuid(),
+  id uuid not null default gen_random_uuid(), -- Internal UUID
+  volunteer_id uuid not null, -- FK linking to volunteers table
   email text null,
   full_name text null,
   mobile_number text null,
@@ -188,24 +188,22 @@ create table public.volunteers_non_auth (
   onboarding_completed boolean null default false,
   created_at timestamp with time zone null default now(),
   updated_at timestamp with time zone null default now(),
-  constraint volunteers_non_auth_pkey primary key (id)
+  
+  constraint volunteers_non_auth_pkey primary key (id),
+  constraint volunteers_non_auth_volunteer_id_fkey 
+    foreign key (volunteer_id) references public.volunteers(id) on delete cascade
 ) TABLESPACE pg_default;
-
-create trigger update_volunteers_non_auth_updated_at BEFORE
-update on volunteers_non_auth for EACH row
-execute FUNCTION update_updated_at_column ();
-
--- Trigger function to copy new volunteers
-create function copy_new_volunteers_to_non_auth() returns trigger as $$
+create or replace function copy_new_volunteers_to_non_auth() returns trigger as $$
 begin
   insert into public.volunteers_non_auth (
-    id, email, full_name, mobile_number, age, organization, work_types,
+    id, volunteer_id, email, full_name, mobile_number, age, organization, work_types,
     preferred_location, availability_start_date, availability_end_date,
     time_preference, days_available, onboarding_step, onboarding_completed,
     created_at, updated_at
   )
   values (
-    gen_random_uuid(), -- New UUID (not linked to auth)
+    gen_random_uuid(), -- Internal UUID for non-auth tracking
+    NEW.id, -- Store actual volunteer_id as FK
     NEW.email, NEW.full_name, NEW.mobile_number, NEW.age, NEW.organization, NEW.work_types,
     NEW.preferred_location, NEW.availability_start_date, NEW.availability_end_date,
     NEW.time_preference, NEW.days_available, NEW.onboarding_step, NEW.onboarding_completed,
@@ -215,8 +213,10 @@ begin
 end;
 $$ language plpgsql;
 
--- Trigger to call function on new volunteer insert
+drop trigger if exists trigger_copy_volunteers_non_auth on public.volunteers;
+
 create trigger trigger_copy_volunteers_non_auth
 after insert on public.volunteers
 for each row
 execute function copy_new_volunteers_to_non_auth();
+

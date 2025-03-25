@@ -1,16 +1,15 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { ArrowLeft, Calendar, Edit, MapPin, Users } from "lucide-react"
+import { ArrowLeft, Calendar, Edit, MapPin, Users, Plus, UserPlus } from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
 import { EventTasks } from "@/components/events/event-tasks"
-import { EventVolunteers } from "@/components/events/event-volunteers"
+import { EventStats } from "@/components/events/event-stats"
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   // Fetch event details from Supabase
@@ -29,7 +28,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Back to events">
               <Link href="/dashboard/events">
@@ -41,16 +40,30 @@ export default async function EventDetailPage({ params }: { params: { id: string
               {event.status}
             </Badge>
           </div>
-          <Button asChild>
-            <Link href={`/dashboard/events/${event.id}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Event
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/events/${event.id}/tasks/new`}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/events/${event.id}/volunteers/add`}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Volunteer
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href={`/dashboard/events/${event.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Event
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+          <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>Event Details</CardTitle>
               <CardDescription>Comprehensive information about this event</CardDescription>
@@ -124,65 +137,38 @@ export default async function EventDetailPage({ params }: { params: { id: string
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>Event Statistics</CardTitle>
               <CardDescription>Overview of tasks and volunteers</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border p-3">
-                  <div className="text-sm font-medium text-muted-foreground">Total Tasks</div>
-                  <div className="text-2xl font-bold">
-                    <EventTaskCount eventId={event.id} />
-                  </div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-sm font-medium text-muted-foreground">Completed Tasks</div>
-                  <div className="text-2xl font-bold">
-                    <EventCompletedTaskCount eventId={event.id} />
-                  </div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-sm font-medium text-muted-foreground">Registered Volunteers</div>
-                  <div className="text-2xl font-bold">
-                    <EventVolunteerCount eventId={event.id} />
-                  </div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-sm font-medium text-muted-foreground">Volunteer Capacity</div>
-                  <div className="text-2xl font-bold">
-                    <EventVolunteerCapacity eventId={event.id} maxVolunteers={event.max_volunteers} />
-                  </div>
-                </div>
-              </div>
+            <CardContent>
+              <EventStats eventId={event.id} />
+            </CardContent>
+          </Card>
 
-              <div className="flex justify-between gap-4">
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={`/dashboard/events/${event.id}/tasks/new`}>Add Task</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={`/dashboard/events/${event.id}/volunteers/add`}>Add Volunteer</Link>
-                </Button>
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Tasks</CardTitle>
+              <CardDescription>Manage tasks for this event</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EventTasks eventId={event.id} />
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Volunteers</CardTitle>
+              <CardDescription>Manage volunteers for this event</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="mb-4 text-muted-foreground">Volunteer management section coming soon.</p>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        <Tabs defaultValue="tasks" className="space-y-4">
-          <TabsList aria-label="Event management sections">
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tasks" className="space-y-4">
-            <EventTasks eventId={event.id} />
-          </TabsContent>
-
-          <TabsContent value="volunteers" className="space-y-4">
-            <EventVolunteers eventId={event.id} />
-          </TabsContent>
-        </Tabs>
       </div>
     </DashboardLayout>
   )

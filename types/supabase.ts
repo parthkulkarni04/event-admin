@@ -338,6 +338,7 @@ export type Database = {
           preferred_location: string | null
           time_preference: string | null
           updated_at: string | null
+          volunteer_id: string
           work_types: string[] | null
         }
         Insert: {
@@ -356,6 +357,7 @@ export type Database = {
           preferred_location?: string | null
           time_preference?: string | null
           updated_at?: string | null
+          volunteer_id: string
           work_types?: string[] | null
         }
         Update: {
@@ -374,9 +376,18 @@ export type Database = {
           preferred_location?: string | null
           time_preference?: string | null
           updated_at?: string | null
+          volunteer_id?: string
           work_types?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "volunteers_non_auth_volunteer_id_fkey"
+            columns: ["volunteer_id"]
+            isOneToOne: false
+            referencedRelation: "volunteers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

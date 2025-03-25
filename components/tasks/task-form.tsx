@@ -51,6 +51,18 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
     setIsSubmitting(true)
 
     try {
+      // Look up volunteer ID if email is provided
+      let volunteerId = null
+      if (data.volunteer_email) {
+        const { data: volunteerData } = await supabase
+          .from("volunteers_non_auth")
+          .select("id")
+          .eq("email", data.volunteer_email)
+          .maybeSingle()
+        
+        volunteerId = volunteerData?.id || null
+      }
+
       if (task) {
         // Update existing task
         const { error } = await supabase
@@ -59,6 +71,7 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
             task_description: data.task_description,
             task_status: data.task_status,
             volunteer_email: data.volunteer_email || null,
+            volunteer_id: volunteerId,
           })
           .eq("task_id", task.task_id)
 
@@ -80,6 +93,7 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
             task_description: data.task_description,
             task_status: data.task_status,
             volunteer_email: data.volunteer_email || null,
+            volunteer_id: volunteerId,
           })
           .select()
 
