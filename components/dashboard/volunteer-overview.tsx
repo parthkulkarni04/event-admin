@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { supabase } from "@/lib/supabase"
-import type { Volunteer } from "@/lib/supabase"
+import type { VolunteerNonAuth } from "@/lib/supabase"
 
 export async function VolunteerOverview() {
   // Fetch volunteers from Supabase
   const { data: volunteers, error } = await supabase
-    .from("volunteers")
+    .from("volunteers_non_auth")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(5)
@@ -45,7 +45,7 @@ export async function VolunteerOverview() {
   )
 }
 
-function VolunteerCard({ volunteer }: { volunteer: Volunteer }) {
+function VolunteerCard({ volunteer }: { volunteer: VolunteerNonAuth }) {
   const initials = volunteer.full_name
     ? volunteer.full_name
         .split(" ")
@@ -66,7 +66,7 @@ function VolunteerCard({ volunteer }: { volunteer: Volunteer }) {
             <span>{volunteer.email || "No email"}</span>
             <div className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              <span>Joined: {format(new Date(volunteer.created_at), "MMM d, yyyy")}</span>
+              <span>Joined: {format(new Date(volunteer.created_at || ''), "MMM d, yyyy")}</span>
             </div>
           </div>
         </div>

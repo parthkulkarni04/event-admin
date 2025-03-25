@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { supabase } from "@/lib/supabase"
-import type { Volunteer } from "@/lib/supabase"
+import type { VolunteerNonAuth } from "@/lib/supabase"
 
 export async function VolunteersTable() {
   // Fetch volunteers from Supabase
   const { data: volunteers, error } = await supabase
-    .from("volunteers")
+    .from("volunteers_non_auth")
     .select("*")
     .order("created_at", { ascending: false })
 
@@ -39,7 +39,7 @@ export async function VolunteersTable() {
   )
 }
 
-function VolunteerRow({ volunteer }: { volunteer: Volunteer }) {
+function VolunteerRow({ volunteer }: { volunteer: VolunteerNonAuth }) {
   const initials = volunteer.full_name
     ? volunteer.full_name
         .split(" ")
@@ -60,7 +60,7 @@ function VolunteerRow({ volunteer }: { volunteer: Volunteer }) {
             <span>{volunteer.email || "No email"}</span>
             <div className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              <span>Joined: {format(new Date(volunteer.created_at), "MMM d, yyyy")}</span>
+              <span>Joined: {format(new Date(volunteer.created_at || ''), "MMM d, yyyy")}</span>
             </div>
           </div>
         </div>

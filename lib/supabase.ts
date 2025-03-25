@@ -56,6 +56,25 @@ export type Volunteer = {
   updated_at: string
 }
 
+export type VolunteerNonAuth = {
+  id: string
+  email: string | null
+  full_name: string | null
+  mobile_number: string | null
+  age: number | null
+  organization: string | null
+  work_types: string[] | null
+  preferred_location: string | null
+  availability_start_date: string | null
+  availability_end_date: string | null
+  time_preference: string | null
+  days_available: string[] | null
+  onboarding_step: number | null
+  onboarding_completed: boolean | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export type Skill = {
   skill_id: number
   skill: string
