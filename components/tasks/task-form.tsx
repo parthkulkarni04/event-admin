@@ -20,11 +20,8 @@ const taskFormSchema = z.object({
   task_description: z.string().min(3, {
     message: "Task description must be at least 3 characters."
   }),
-  assign_volunteer: z.boolean().default(false),
-  volunteer_id: z.string().optional(),
-  volunteer_email: z.string().email().optional(),
   task_status: z.enum(["unassigned", "assigned", "inprogress", "complete"], {
-    required_error: "Please select a task status."
+    required_error: "Please select a status.",
   }),
 })
 

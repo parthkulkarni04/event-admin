@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2, Save, Send, Clock, MapPin, Users, Image as ImageIcon, Archive, Trash2 } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Send, Clock, MapPin, Users, Image as ImageIcon, Archive, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -14,8 +14,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 import type { Event } from "@/lib/supabase"
 import {
@@ -43,6 +46,7 @@ const eventFormSchema = z
     }),
     description: z.string().optional(),
     thumbnail_image: z.string().url().optional().or(z.literal("")),
+    thumbnail_source: z.enum(["url", "upload"]).default("url"),
     event_category: z.enum(["A", "B", "C", "D", "E"], {
       required_error: "Please select an event category.",
     }),
@@ -78,6 +82,69 @@ const eventFormSchema = z
 
 type EventFormValues = z.infer<typeof eventFormSchema>
 
+// Email template for new event notifications
+const createEmailTemplate = (event: Event, registerUrl: string) => {
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .email-container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+          .header { background-color: #4f46e5; color: white; padding: 15px; border-radius: 5px 5px 0 0; text-align: center; }
+          .content { padding: 20px; }
+          .event-image { width: 100%; height: auto; border-radius: 5px; margin-bottom: 20px; }
+          .event-detail { margin-bottom: 10px; }
+          .detail-label { font-weight: bold; }
+          .register-button { display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+          .footer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <h1>New Volunteer Event</h1>
+          </div>
+          <div class="content">
+            <h2>${event.title}</h2>
+            ${event.thumbnail_image ? `<img src="${event.thumbnail_image}" alt="${event.title}" class="event-image"/>` : ''}
+            
+            <div class="event-detail">
+              <p>${event.description || 'No description provided.'}</p>
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">📍 Location:</span> ${event.location} (${event.location_type === 'physical' ? 'In-person' : 'Virtual'})
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">📅 Date:</span> ${format(new Date(event.start_date), "PPP")} to ${format(new Date(event.end_date), "PPP")}
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">⏰ Time:</span> ${format(new Date(event.start_date), "h:mm a")} to ${format(new Date(event.end_date), "h:mm a")}
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">👥 Volunteers Needed:</span> ${event.max_volunteers}
+            </div>
+            
+            ${event.registration_deadline ? 
+              `<div class="event-detail">
+                <span class="detail-label">⏳ Registration Deadline:</span> ${format(new Date(event.registration_deadline), "PPP")}
+              </div>` : ''}
+            
+            <a href="${registerUrl}" class="register-button">Register Now</a>
+            
+            <div class="footer">
+              <p>You're receiving this email because you're registered as a volunteer. If you no longer wish to receive these notifications, please update your preferences.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
 export function EventForm({ event }: { event?: Event }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -86,6 +153,13 @@ export function EventForm({ event }: { event?: Event }) {
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [previewUrl, setPreviewUrl] = useState<string>("")
+  const [imageTab, setImageTab] = useState<"url" | "upload">(
+    event?.thumbnail_image ? "url" : "upload"
+  )
 
   // Default values for the form
   const defaultValues: Partial<EventFormValues> = {
@@ -94,6 +168,7 @@ export function EventForm({ event }: { event?: Event }) {
     location_type: event?.location_type || "physical",
     description: event?.description || "",
     thumbnail_image: event?.thumbnail_image || "",
+    thumbnail_source: event?.thumbnail_image ? "url" : "upload",
     event_category: event?.event_category || "A",
     start_date: event?.start_date ? new Date(event.start_date) : new Date(),
     start_time: event?.start_date ? format(new Date(event.start_date), "HH:mm") : "09:00",
@@ -108,6 +183,148 @@ export function EventForm({ event }: { event?: Event }) {
     defaultValues,
   })
 
+  // Handle image file selection
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Check file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image must be less than 5MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setImageFile(file)
+    
+    // Create a preview URL
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
+    
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [toast])
+
+  // Reset image selection
+  const handleResetImage = () => {
+    setImageFile(null)
+    setPreviewUrl("")
+  }
+
+  // Upload image to Supabase Storage
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      setUploading(true)
+      setUploadProgress(0)
+      
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
+      const filePath = `event-thumbnails/${fileName}`
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('event-images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+      
+      if (error) throw error
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-images')
+        .getPublicUrl(data.path)
+      
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast({
+        title: "Upload failed",
+        description: "There was an error uploading the image.",
+        variant: "destructive"
+      })
+      return null
+    } finally {
+      setUploading(false)
+      setUploadProgress(100)
+    }
+  }
+
+  // Send emails to all volunteers
+  const sendEventEmails = async (eventData: Event) => {
+    try {
+      // 1. Fetch all volunteer emails from volunteers_non_auth table
+      const { data: volunteers, error: fetchError } = await supabase
+        .from('volunteers_non_auth')
+        .select('email')
+      
+      if (fetchError) throw fetchError
+      
+      if (!volunteers || volunteers.length === 0) {
+        console.log("No volunteers found to email")
+        return
+      }
+      
+      // Create the register URL (adjust based on your application's routing)
+      const baseUrl = window.location.origin
+      const registerUrl = `${baseUrl}/events/${eventData.id}/register`
+      
+      // 2. Create email template with event details
+      const emailTemplate = createEmailTemplate(eventData, registerUrl)
+      
+      // 3. Send emails to all volunteers
+      // Note: We're using server action to handle the email sending
+      const response = await fetch('/api/send-event-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          volunteers: volunteers,
+          subject: `New Volunteer Event: ${eventData.title}`,
+          htmlContent: emailTemplate,
+          eventId: eventData.id
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to send emails')
+      }
+      
+      // 4. Update the event to mark email_sent as true
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ email_sent: true })
+        .eq('id', eventData.id)
+      
+      if (updateError) throw updateError
+      
+      return true
+    } catch (error) {
+      console.error('Error sending volunteer emails:', error)
+      toast({
+        title: "Email Notification Error",
+        description: "There was an error sending notification emails to volunteers.",
+        variant: "destructive"
+      })
+      return false
+    }
+  }
+
   async function onSubmit(data: EventFormValues, status: "draft" | "published" | "archived" = "draft") {
     setIsSubmitting(true)
 
@@ -121,16 +338,23 @@ export function EventForm({ event }: { event?: Event }) {
       const [endHours, endMinutes] = data.end_time.split(":")
       endDateTime.setHours(parseInt(endHours), parseInt(endMinutes))
 
+      // Handle image upload if there's a file
+      let thumbnailUrl = data.thumbnail_image
+      if (data.thumbnail_source === 'upload' && imageFile) {
+        const uploadedUrl = await uploadImage(imageFile)
+        thumbnailUrl = uploadedUrl || undefined // Fix for type error
+      }
+
       if (event) {
         // Update existing event
-        const { error } = await supabase
+        const { data: updatedEvent, error } = await supabase
           .from("events")
           .update({
             title: data.title,
             location: data.location,
             location_type: data.location_type,
             description: data.description,
-            thumbnail_image: data.thumbnail_image || null,
+            thumbnail_image: thumbnailUrl || null,
             event_category: data.event_category,
             start_date: startDateTime.toISOString(),
             end_date: endDateTime.toISOString(),
@@ -139,8 +363,31 @@ export function EventForm({ event }: { event?: Event }) {
             status,
           })
           .eq("id", event.id)
+          .select()
 
         if (error) throw error
+        
+        // If publishing event, send emails to volunteers
+        if (status === "published") {
+          // Create a proper Event object with all required fields
+          const eventToEmail: Event = {
+            id: event.id,
+            title: data.title,
+            location: data.location,
+            location_type: data.location_type,
+            description: data.description || null,
+            thumbnail_image: thumbnailUrl || null,
+            event_category: data.event_category,
+            start_date: startDateTime.toISOString(),
+            end_date: endDateTime.toISOString(),
+            registration_deadline: data.registration_deadline?.toISOString() || null,
+            max_volunteers: data.max_volunteers,
+            status: status,
+            email_sent: false,
+            created_at: event.created_at
+          };
+          await sendEventEmails(eventToEmail);
+        }
 
         toast({
           title: "Event updated",
@@ -159,17 +406,23 @@ export function EventForm({ event }: { event?: Event }) {
             location: data.location,
             location_type: data.location_type,
             description: data.description,
-            thumbnail_image: data.thumbnail_image || null,
+            thumbnail_image: thumbnailUrl || null,
             event_category: data.event_category,
             start_date: startDateTime.toISOString(),
             end_date: endDateTime.toISOString(),
             registration_deadline: data.registration_deadline?.toISOString() || null,
             max_volunteers: data.max_volunteers,
             status,
+            email_sent: false, // Initialize as false
           })
           .select()
 
         if (error) throw error
+        
+        // If publishing a new event, send emails to volunteers
+        if (status === "published" && newEvent && newEvent.length > 0) {
+          await sendEventEmails(newEvent[0] as Event)
+        }
 
         toast({
           title: "Event created",
@@ -305,14 +558,101 @@ export function EventForm({ event }: { event?: Event }) {
           name="thumbnail_image"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Thumbnail Image URL</FormLabel>
+              <FormLabel>Thumbnail Image</FormLabel>
               <FormControl>
-                <div className="relative">
-                  <ImageIcon className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="https://example.com/image.jpg" className="pl-9" {...field} />
-                </div>
+                <Tabs 
+                  defaultValue={imageTab} 
+                  onValueChange={(value) => {
+                    setImageTab(value as "url" | "upload")
+                    form.setValue("thumbnail_source", value as "url" | "upload")
+                  }}
+                  className="w-full"
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="url">URL</TabsTrigger>
+                    <TabsTrigger value="upload">Upload</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="url" className="mt-2">
+                    <div className="relative">
+                      <ImageIcon className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="https://placehold.co/600x400?text=Event+Image" 
+                        className="pl-9" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e)
+                          form.setValue("thumbnail_source", "url")
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="upload" className="mt-2 space-y-4">
+                    <div className="grid w-full items-center gap-1.5">
+                      <div className="flex flex-col items-center justify-center w-full">
+                        {previewUrl ? (
+                          <div className="relative w-full max-w-md mx-auto mb-4">
+                            <div className="relative aspect-video rounded-lg overflow-hidden border">
+                              <Image
+                                src={previewUrl}
+                                alt="Image preview"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-8 w-8 rounded-full"
+                              onClick={handleResetImage}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <label 
+                            htmlFor="image-upload"
+                            className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
+                          >
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Upload className="w-8 h-8 mb-3 text-muted-foreground" />
+                              <p className="mb-2 text-sm text-muted-foreground">
+                                <span className="font-semibold">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-muted-foreground">PNG, JPG or WebP (MAX. 5MB)</p>
+                            </div>
+                            <input
+                              id="image-upload"
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleFileChange}
+                              onClick={(e) => {
+                                // Reset the value to allow selecting the same file again
+                                (e.target as HTMLInputElement).value = ''
+                                form.setValue("thumbnail_source", "upload")
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                      {uploading && (
+                        <div className="w-full bg-muted rounded-full h-2.5 mt-2">
+                          <div 
+                            className="bg-primary h-2.5 rounded-full transition-all duration-300" 
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </FormControl>
-              <FormDescription>URL for the event thumbnail image (optional).</FormDescription>
+              <FormDescription>
+                {imageTab === "url" 
+                  ? "URL for the event thumbnail image (optional)." 
+                  : "Upload an image for the event thumbnail (optional)."}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -552,7 +892,7 @@ export function EventForm({ event }: { event?: Event }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Publish Event</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to publish this event? When you publish the event, all registered volunteers will be notified.
+              Are you sure you want to publish this event? When you publish the event, all volunteers will be notified.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

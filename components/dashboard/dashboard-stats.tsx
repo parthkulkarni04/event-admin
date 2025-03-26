@@ -4,10 +4,11 @@ import { supabase } from "@/lib/supabase"
 
 export async function DashboardStats() {
   // Fetch stats from Supabase
-  const [eventsCount, tasksCount, volunteersCount] = await Promise.all([
-    supabase.from("events").select("id", { count: "exact", head: true }).eq("status", "completed"),
-    supabase.from("tasks").select("task_id", { count: "exact", head: true }).eq("task_status", "complete"),
+  const [eventsCount, tasksCount, volunteersCount, completedTasksCount] = await Promise.all([
+    supabase.from("events").select("id", { count: "exact", head: true }),
+    supabase.from("tasks").select("task_id", { count: "exact", head: true }),
     supabase.from("volunteers_non_auth").select("id", { count: "exact", head: true }),
+    supabase.from("tasks").select("task_id", { count: "exact", head: true }).eq("task_status", "complete"),
   ])
 
   return (

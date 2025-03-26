@@ -70,6 +70,7 @@ export function EventStats({ eventId }: { eventId: number }) {
       if (tasksError) throw tasksError
 
       const taskCounts = {
+
         total: tasks.length,
         completed: tasks.filter(t => t.task_status === "complete").length,
         ongoing: tasks.filter(t => t.task_status === "inprogress").length,

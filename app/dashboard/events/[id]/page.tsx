@@ -62,7 +62,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/events/${event.id}/tasks/new`}>
+              <Link href={`/dashboard/tasks/new?eventId=${event.id}`}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Task
               </Link>

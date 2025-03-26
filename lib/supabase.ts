@@ -25,10 +25,17 @@ export type Event = {
   created_at: string
 }
 
-export type Task = Database["public"]["Tables"]["tasks"]["Row"] & {
-  events?: Event;
-  volunteers?: VolunteerBase;
+
+export type Task = {
+  task_id: number
+  event_id: number
+  volunteer_id: string | null
+  volunteer_email: string | null
+  task_description: string
   task_status: "unassigned" | "assigned" | "inprogress" | "complete"
+  task_feedback: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type Volunteer = {

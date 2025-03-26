@@ -57,6 +57,7 @@ function TaskRow({ task }: { task: Task & { events: { title: string } } }) {
     assigned: "bg-amber-100 text-amber-800",
     inprogress: "bg-blue-100 text-blue-800",
     complete: "bg-green-100 text-green-800"
+
   }
 
   return (
