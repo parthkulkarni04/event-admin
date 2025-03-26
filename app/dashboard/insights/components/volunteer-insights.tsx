@@ -50,7 +50,7 @@ export default function VolunteerInsights() {
   const COLORS = ['#0047AB', '#008000', '#B8860B', '#8B0000', '#4B0082', '#006400', '#800000'];
   
   return (
-    <div className="grid gap-4 md:grid-cols-2 m-3">
+    <div className="grid gap-4 md:grid-cols-3 m-3">
       {/* Total Volunteers Card */}
       <Card>
         <CardHeader className="pb-2 pt-5 px-6">
@@ -84,6 +84,42 @@ export default function VolunteerInsights() {
         </CardContent>
       </Card>
       
+      {/* Volunteer Growth Over Time Card */}
+      <Card className="col-span-full lg:col-span-2">
+        <CardHeader className="pb-2 pt-5 px-6">
+          <CardDescription className="text-sm mb-1">New Volunteers Over the Months</CardDescription>
+          <CardTitle className="text-2xl">Volunteer Growth</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[300px] px-6 pb-5">
+          {data.volunteerGrowth.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={data.volunteerGrowth}
+                margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value: number) => [`${value} Volunteers`, "New Sign-ups"]} 
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#8884d8"
+                  strokeWidth={2}
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No volunteer growth data available</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Volunteer Skills Distribution Card */}
       <Card className="row-span-2">
         <CardHeader className="pb-2 pt-5 px-6">
@@ -152,42 +188,6 @@ export default function VolunteerInsights() {
               `${skill.skill}: ${skill.count} volunteers.`
             ).join(' ')}
           </VisuallyHidden>
-        </CardContent>
-      </Card>
-      
-      {/* Volunteer Growth Over Time Card */}
-      <Card className="col-span-full lg:col-span-2">
-        <CardHeader className="pb-2 pt-5 px-6">
-          <CardDescription className="text-sm mb-1">New Volunteers Over the Months</CardDescription>
-          <CardTitle className="text-2xl">Volunteer Growth</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[300px] px-6 pb-5">
-          {data.volunteerGrowth.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={data.volunteerGrowth}
-                margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value: number) => [`${value} Volunteers`, "New Sign-ups"]} 
-                />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#8884d8"
-                  strokeWidth={2}
-                  activeDot={{ r: 8 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">No volunteer growth data available</p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
