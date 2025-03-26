@@ -31,7 +31,7 @@ export type Task = {
   volunteer_id: string | null
   volunteer_email: string | null
   task_description: string
-  task_status: "unassigned" | "to do" | "doing" | "done"
+  task_status: "unassigned" | "assigned" | "inprogress" | "complete"
   task_feedback: string | null
   created_at: string
   updated_at: string

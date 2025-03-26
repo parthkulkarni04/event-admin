@@ -55,7 +55,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/events/${event.id}/tasks/new`}>
+              <Link href={`/dashboard/tasks/new?eventId=${event.id}`}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Task
               </Link>
@@ -219,7 +219,7 @@ async function EventCompletedTaskCount({ eventId }: { eventId: number }) {
     .from("tasks")
     .select("task_id", { count: "exact", head: true })
     .eq("event_id", eventId)
-    .eq("task_status", "done")
+    .eq("task_status", "complete")
 
   return <>{count || 0}</>
 }

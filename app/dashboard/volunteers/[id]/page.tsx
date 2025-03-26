@@ -218,15 +218,15 @@ export default function VolunteerDetailPage({ params }: { params: { id: string }
   const getTaskStatusBadge = (status: string) => {
     switch (status) {
       case "unassigned":
-        return <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">Unassigned</Badge>
-      case "to do":
-        return <Badge variant="outline" className="text-blue-500 border-blue-200 bg-blue-50">To Do</Badge>
-      case "doing":
-        return <Badge variant="outline" className="text-purple-500 border-purple-200 bg-purple-50">In Progress</Badge>
-      case "done":
-        return <Badge variant="outline" className="text-green-500 border-green-200 bg-green-50">Completed</Badge>
+        return <Badge variant="outline" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">Unassigned</Badge>
+      case "assigned":
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Assigned</Badge>
+      case "inprogress":
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">In Progress</Badge>
+      case "complete":
+        return <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Complete</Badge>
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">Unknown</Badge>
     }
   }
 

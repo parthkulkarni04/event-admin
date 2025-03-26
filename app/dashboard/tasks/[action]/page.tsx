@@ -28,6 +28,7 @@ const taskFormSchema = z.object({
   }),
   assign_volunteer: z.boolean().default(false),
   volunteer_id: z.string().optional(),
+  task_feedback: z.string().optional(),
 }).refine((data) => {
   if (data.assign_volunteer && !data.volunteer_id) {
     return false
@@ -209,6 +210,7 @@ export default function TaskForm({ params }: { params: { action: string } }) {
       skills: [],
       assign_volunteer: task?.volunteer_id ? true : false,
       volunteer_id: task?.volunteer_id || undefined,
+      task_feedback: task?.task_feedback || "",
     },
   })
 
@@ -231,11 +233,10 @@ export default function TaskForm({ params }: { params: { action: string } }) {
           .from("tasks")
           .update({
             task_description: data.task_description,
-            task_status: data.assign_volunteer ? "to do" : "unassigned",
+            task_feedback: data.task_feedback || null,
             volunteer_id: data.assign_volunteer ? data.volunteer_id : null,
-            volunteer_email: data.assign_volunteer
-              ? volunteers.find((v) => v.id === data.volunteer_id)?.email || null
-              : null,
+            volunteer_email: data.assign_volunteer ? data.volunteer_email : null,
+            task_status: data.assign_volunteer ? "assigned" : "unassigned",
           })
           .eq("task_id", task.task_id)
 
@@ -269,11 +270,10 @@ export default function TaskForm({ params }: { params: { action: string } }) {
           .insert({
             event_id: eventId,
             task_description: data.task_description,
-            task_status: data.assign_volunteer ? "to do" : "unassigned",
+            task_feedback: data.task_feedback || null,
             volunteer_id: data.assign_volunteer ? data.volunteer_id : null,
-            volunteer_email: data.assign_volunteer
-              ? volunteers.find((v) => v.id === data.volunteer_id)?.email || null
-              : null,
+            volunteer_email: data.assign_volunteer ? data.volunteer_email : null,
+            task_status: data.assign_volunteer ? "assigned" : "unassigned",
           })
           .select()
           .single()
