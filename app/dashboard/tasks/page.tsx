@@ -34,11 +34,18 @@ import {
 import { Calendar, CheckCircle2, Circle, Clock, Filter, Plus, Search, XCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
-import type { Task, Skill } from "@/lib/supabase"
+import type { Task as BaseTask, Skill } from "@/lib/supabase"
+
+// Update Task type to match the database schema
+interface Task extends Omit<BaseTask, 'task_status' | 'event_id'> {
+  task_status: "unassigned" | "assigned" | "inprogress" | "complete";
+  event_id: number | null;
+}
 
 type TaskWithRelations = Task & {
   events: { title: string } | null;
   volunteer_name: string | null;
+  volunteer_email: string | null;
   skills: Skill[];
 }
 
@@ -86,6 +93,7 @@ export default function TasksPage() {
         .order("updated_at", { ascending: false })
 
       if (tasksError) throw tasksError
+      console.log("Tasks data:", tasksData)
 
       // Fetch all skills
       const { data: skillsData, error: skillsError } = await supabase
@@ -102,6 +110,16 @@ export default function TasksPage() {
         .order("title", { ascending: true })
 
       if (eventsError) throw eventsError
+
+      // Fetch all volunteers to check structure
+      const { data: allVolunteers, error: allVolunteersError } = await supabase
+        .from("volunteers_non_auth")
+        .select("*")
+        .limit(5)
+      
+      if (!allVolunteersError) {
+        console.log("Sample volunteers data:", allVolunteers)
+      }
 
       // Fetch task skills for each task
       const tasksWithSkills = await Promise.all(
@@ -121,23 +139,48 @@ export default function TasksPage() {
 
           // Get volunteer name if assigned
           let volunteerName = null
+          let volunteerEmail = null
+          
           if (task.volunteer_id) {
+            console.log(`Looking up volunteer_id: ${task.volunteer_id} for task: ${task.task_id}`)
+            
+            // Try different field names
             const { data: volunteer, error: volunteerError } = await supabase
               .from("volunteers_non_auth")
-              .select("full_name")
+              .select("*")
               .eq("id", task.volunteer_id)
               .single()
 
-            if (!volunteerError && volunteer) {
+            if (volunteerError) {
+              console.error(`Error finding volunteer with id ${task.volunteer_id}:`, volunteerError)
+              
+              // Try alternate field
+              const { data: altVolunteer, error: altVolunteerError } = await supabase
+                .from("volunteers_non_auth")
+                .select("*")
+                .eq("volunteer_id", task.volunteer_id)
+                .single()
+                
+              if (!altVolunteerError && altVolunteer) {
+                console.log("Found volunteer using volunteer_id field:", altVolunteer)
+                volunteerName = altVolunteer.full_name
+                volunteerEmail = altVolunteer.email
+              }
+            } else if (volunteer) {
+              console.log("Found volunteer:", volunteer)
               volunteerName = volunteer.full_name
+              volunteerEmail = volunteer.email
             }
           }
 
           return {
             ...task,
+            // Ensure task_status is one of the valid statuses
+            task_status: (task.task_status as "unassigned" | "assigned" | "inprogress" | "complete") || "unassigned",
             skills: taskSkillObjects,
-            volunteer_name: volunteerName
-          }
+            volunteer_name: volunteerName,
+            volunteer_email: volunteerEmail
+          } as TaskWithRelations
         })
       )
 
@@ -193,25 +236,33 @@ export default function TasksPage() {
       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
       rowColor: "bg-gray-50 dark:bg-gray-900",
     },
-    "to do": {
-      label: "To Do",
+    assigned: {
+      label: "Assigned",
       icon: Clock,
       color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
       rowColor: "bg-blue-50 dark:bg-blue-950",
     },
-    doing: {
+    inprogress: {
       label: "In Progress",
       icon: Clock, 
       color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
       rowColor: "bg-yellow-50 dark:bg-yellow-950",
     },
-    done: {
+    complete: {
       label: "Completed",
       icon: CheckCircle2,
       color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
       rowColor: "bg-green-50 dark:bg-green-950",
     },
-  }
+  } as const;
+
+  // Default status configuration
+  const defaultStatus = {
+    label: "Unknown",
+    icon: Circle,
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+    rowColor: "bg-gray-50 dark:bg-gray-900",
+  };
 
   const clearFilters = () => {
     setSearchQuery("")
@@ -253,17 +304,17 @@ export default function TasksPage() {
               </Button>
             )}
           </div>
-          <div className="flex flex-1 gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px] h-9">
+              <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                <SelectItem value="to do">To Do</SelectItem>
-                <SelectItem value="doing">In Progress</SelectItem>
-                <SelectItem value="done">Completed</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
+                <SelectItem value="inprogress">In Progress</SelectItem>
+                <SelectItem value="complete">Completed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -271,7 +322,7 @@ export default function TasksPage() {
               value={eventFilter?.toString() || "all"} 
               onValueChange={(value) => setEventFilter(value === "all" ? null : parseInt(value))}
             >
-              <SelectTrigger className="w-[180px] h-9">
+              <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="Event" />
               </SelectTrigger>
               <SelectContent>
@@ -286,12 +337,12 @@ export default function TasksPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" className="h-9">
                   <Filter className="mr-2 h-4 w-4" />
-                  Skills {selectedSkills.length > 0 && `(${selectedSkills.length})`}
+                  Skills
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
+              <DropdownMenuContent align="end" className="w-[200px]">
                 {skills.map((skill) => (
                   <DropdownMenuCheckboxItem
                     key={skill.skill_id}
@@ -313,7 +364,7 @@ export default function TasksPage() {
             {(searchQuery || statusFilter !== "all" || eventFilter || selectedSkills.length > 0) && (
               <Button 
                 variant="ghost" 
-                size="sm" 
+                size="sm"
                 className="h-9"
                 onClick={clearFilters}
               >
@@ -323,156 +374,161 @@ export default function TasksPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="h-8 w-8" />
-          </div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox />
+                </TableHead>
+                <TableHead>Task</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Assigned To</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Skills</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableHead className="w-[30px]">
-                    <span className="sr-only">Complete</span>
-                  </TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Skills</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Updated</TableHead>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    <div className="flex items-center justify-center">
+                      <Spinner className="h-8 w-8" />
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentTasks.length > 0 ? (
-                  currentTasks.map((task) => {
-                    const StatusIcon = statusConfig[task.task_status].icon;
-                    
-                    return (
-                      <TableRow 
-                        key={task.task_id}
-                        className="hover:bg-muted/50"
-                      >
-                        <TableCell>
-                          <Checkbox 
-                            checked={task.task_status === "done"} 
-                            aria-label="Mark as complete"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant="outline" 
-                            className={statusConfig[task.task_status].color}
-                          >
-                            <StatusIcon className="mr-1 h-3 w-3 inline" />
-                            {statusConfig[task.task_status].label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
+              ) : currentTasks.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    No tasks found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                currentTasks.map((task) => {
+                  const status = task.task_status || "unassigned";
+                  const statusConfigItem = statusConfig[status as keyof typeof statusConfig] || defaultStatus;
+                  const StatusIcon = statusConfigItem.icon;
+                  
+                  return (
+                    <TableRow 
+                      key={task.task_id}
+                      className="hover:bg-muted/50"
+                    >
+                      <TableCell>
+                        <Checkbox 
+                          checked={status === "complete"} 
+                          aria-label="Mark as complete"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Link 
+                          href={`/dashboard/tasks/${task.task_id}`}
+                          className="hover:underline font-medium"
+                        >
+                          {task.task_description}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {task.events ? (
                           <Link 
-                            href={`/dashboard/tasks/${task.task_id}`}
-                            className="hover:underline font-medium"
+                            href={`/dashboard/events/${task.event_id}`}
+                            className="hover:underline flex items-center"
                           >
-                            {task.task_description}
+                            <Calendar className="mr-1 h-3 w-3 text-muted-foreground" />
+                            {task.events.title}
                           </Link>
-                        </TableCell>
-                        <TableCell>
-                          {task.events ? (
-                            <Link 
-                              href={`/dashboard/events/${task.event_id}`}
-                              className="hover:underline flex items-center"
-                            >
-                              <Calendar className="mr-1 h-3 w-3 text-muted-foreground" />
-                              {task.events.title}
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground italic">No event</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {task.volunteer_name ? (
+                        ) : (
+                          <span className="text-muted-foreground italic">No event</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {task.volunteer_name ? (
+                          <div className="flex flex-col">
                             <span>{task.volunteer_name}</span>
-                          ) : (
-                            <span className="text-muted-foreground italic">Unassigned</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {task.skills.length > 0 ? (
-                              task.skills.map((skill) => (
-                                <Badge key={skill.skill_id} variant="secondary" className="text-xs">
-                                  {skill.icon && <span className="mr-1">{skill.icon}</span>}
-                                  {skill.skill}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-muted-foreground italic">No skills</span>
+                            {task.volunteer_email && (
+                              <span className="text-xs text-muted-foreground">{task.volunteer_email}</span>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {task.task_feedback ? (
-                            <span className="line-clamp-1">{task.task_feedback}</span>
+                        ) : (
+                          <span className="text-muted-foreground italic">Unassigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={statusConfigItem.color}
+                        >
+                          <StatusIcon className="mr-1 h-3 w-3 inline" />
+                          {statusConfigItem.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {task.skills.length > 0 ? (
+                            task.skills.map((skill) => (
+                              <Badge key={skill.skill_id} variant="secondary" className="text-xs">
+                                {skill.skill_icon && <span className="mr-1">{skill.skill_icon}</span>}
+                                {skill.skill}
+                              </Badge>
+                            ))
                           ) : (
-                            <span className="text-muted-foreground italic">No notes</span>
+                            <span className="text-muted-foreground italic">No skills</span>
                           )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">
-                          {task.updated_at ? (
-                            format(new Date(task.updated_at), "MMM d, yyyy h:mm a")
-                          ) : (
-                            format(new Date(task.created_at || ""), "MMM d, yyyy h:mm a")
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
-                      No tasks found.
-                      {(searchQuery || statusFilter !== "all" || eventFilter || selectedSkills.length > 0) && (
-                        <div className="mt-2">
-                          <Button variant="link" onClick={clearFilters}>
-                            Clear filters
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {task.updated_at ? (
+                          format(new Date(task.updated_at), "MMM d, yyyy h:mm a")
+                        ) : (
+                          format(new Date(task.created_at || ""), "MMM d, yyyy h:mm a")
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0" aria-label="Edit">
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0" aria-label="Delete">
+                            <span className="sr-only">Delete</span>
                           </Button>
                         </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
 
-            {/* Pagination Controls */}
-            {filteredTasks.length > tasksPerPage && (
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
+          {/* Pagination Controls */}
+          {filteredTasks.length > tasksPerPage && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredTasks.length)} of {filteredTasks.length} tasks
               </div>
-            )}
-          </div>
-        )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   )

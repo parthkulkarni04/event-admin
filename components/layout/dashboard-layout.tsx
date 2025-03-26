@@ -3,6 +3,7 @@
 import { useState } from "react"
 import type React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { BarChart3, Calendar, ClipboardList, Home, LogOut, Menu, Users, ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -69,12 +70,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       )}>
         <div className="flex h-16 items-center justify-between px-4 border-b">
           <div className={cn("flex items-center gap-2", isCollapsed && "justify-center w-full")}>
-            <Calendar className="h-6 w-6 text-primary" />
+            <Image
+              src="/samarthanam-logo.jpg"
+              alt="Samarthanam Logo"
+              width={80}
+              height={80}
+              className="rounded-full"
+            />
             <h1 className={cn(
-              "font-bold text-lg transition-opacity", 
+              "font-bold text-sm transition-opacity", 
               isCollapsed ? "opacity-0 w-0" : "opacity-100"
             )}>
-              Event Admin
+              Admin - Samarthanam Saarthi
             </h1>
           </div>
           <Button 
@@ -138,8 +145,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <SheetContent side="left" className="w-64 p-0">
           <div className="flex h-16 items-center border-b px-6">
             <div className="flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-primary" />
-              <h1 className="font-bold text-lg">Event Admin</h1>
+              <Image
+                src="/samarthanam-logo.jpg"
+                alt="Samarthanam Logo"
+                width={80}
+                height={80}
+                className="rounded-full"
+              />
+              <h1 className="font-bold text-lg">Admin - Samarthanam Saarthi</h1>
             </div>
           </div>
           <div className="flex flex-col h-[calc(100%-4rem)] justify-between">
@@ -175,8 +188,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </Sheet>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col bg-muted/20 overflow-auto">
-        {children}
+      <main className="flex flex-1 flex-col bg-muted/20 overflow-auto p-6 md:p-8">
+        <div className="max-w-7xl mx-auto w-full">
+          {children}
+        </div>
       </main>
     </div>
   )
