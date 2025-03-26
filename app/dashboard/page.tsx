@@ -8,6 +8,7 @@ import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { RecentEvents } from "@/components/dashboard/recent-events"
 import { UpcomingTasks } from "@/components/dashboard/upcoming-tasks"
 import { VolunteerOverview } from "@/components/dashboard/volunteer-overview"
+import { LiveEvents } from "@/components/dashboard/live-events"
 
 export default function DashboardPage() {
   return (
@@ -19,40 +20,11 @@ export default function DashboardPage() {
           <DashboardStats />
         </Suspense>
 
-        <Tabs defaultValue="events" className="space-y-4">
-          <TabsList aria-label="Dashboard sections">
-            <TabsTrigger value="events" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>Events</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              <span>Tasks</span>
-            </TabsTrigger>
-            <TabsTrigger value="volunteers" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span>Volunteers</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="events" className="space-y-4">
-            <Suspense fallback={<CardSkeleton />}>
-              <RecentEvents />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="tasks" className="space-y-4">
-            <Suspense fallback={<CardSkeleton />}>
-              <UpcomingTasks />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="volunteers" className="space-y-4">
-            <Suspense fallback={<CardSkeleton />}>
-              <VolunteerOverview />
-            </Suspense>
-          </TabsContent>
-        </Tabs>
+        <div className="grid gap-6">
+          <Suspense fallback={<CardSkeleton />}>
+            <LiveEvents />
+          </Suspense>
+        </div>
       </div>
     </DashboardLayout>
   )
@@ -60,8 +32,8 @@ export default function DashboardPage() {
 
 function StatsCardSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid gap-4 md:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
