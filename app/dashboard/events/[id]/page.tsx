@@ -19,11 +19,15 @@ export default async function EventDetailPage({ params }: { params: { id: string
     notFound()
   }
 
-  const statusColors = {
+  const eventId = parseInt(params.id, 10) // Convert string ID to number
+
+  const statusColors: Record<string, string> = {
     draft: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
     published: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
     archived: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
   }
+  
+  const statusColor = statusColors[event.status as keyof typeof statusColors] || statusColors.draft
 
   return (
     <DashboardLayout>
@@ -36,7 +40,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
               </Link>
             </Button>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{event.title}</h1>
-            <Badge variant="outline" className={statusColors[event.status]}>
+            <Badge variant="outline" className={statusColor}>
               {event.status}
             </Badge>
           </div>
@@ -62,8 +66,9 @@ export default async function EventDetailPage({ params }: { params: { id: string
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="md:col-span-1">
+        <div className="grid gap-6 md:grid-cols-5">
+          {/* Event Details Card - takes up 2 columns */}
+          <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Event Details</CardTitle>
               <CardDescription>Comprehensive information about this event</CardDescription>
@@ -137,37 +142,43 @@ export default async function EventDetailPage({ params }: { params: { id: string
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-1">
-            <CardHeader>
-              <CardTitle>Event Statistics</CardTitle>
-              <CardDescription>Overview of tasks and volunteers</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EventStats eventId={event.id} />
-            </CardContent>
-          </Card>
-
-          <Card className="md:col-span-1">
-            <CardHeader>
-              <CardTitle>Tasks</CardTitle>
-              <CardDescription>Manage tasks for this event</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EventTasks eventId={event.id} />
-            </CardContent>
-          </Card>
-
-          <Card className="md:col-span-1">
-            <CardHeader>
-              <CardTitle>Volunteers</CardTitle>
-              <CardDescription>Manage volunteers for this event</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="mb-4 text-muted-foreground">Volunteer management section coming soon.</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Event Statistics Section - takes up 3 columns */}
+          <div className="md:col-span-3 flex flex-col gap-6">
+            {/* Event Statistics Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Event Statistics</CardTitle>
+                <CardDescription>Overview of tasks and volunteers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EventStats eventId={eventId} />
+              </CardContent>
+            </Card>
+            
+            {/* Tasks Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tasks</CardTitle>
+                <CardDescription>Manage tasks for this event</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EventTasks eventId={event.id} />
+              </CardContent>
+            </Card>
+            
+            {/* Volunteers Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Volunteers</CardTitle>
+                <CardDescription>Manage volunteers for this event</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <p className="mb-4 text-muted-foreground">Volunteer management section coming soon.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </DashboardLayout>

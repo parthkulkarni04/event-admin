@@ -7,11 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip
+} from "recharts"
 
 interface TaskStats {
   completed: number
   ongoing: number
+  assigned: number
   unassigned: number
 }
 
@@ -20,18 +27,30 @@ interface VolunteerStats {
   maxVolunteers: number
 }
 
+interface Skill {
+  skill_id: number
+  skill: string
+  skill_icon: string | null
+}
+
 interface RecommendedVolunteer {
   id: string
   full_name: string
-  age: number
   organization: string
   email: string
+  skills: Skill[]
 }
 
-const COLORS = ["#22c55e", "#f59e0b", "#ef4444"]
+const TASK_COLORS = ["#22c55e", "#f59e0b", "#3b82f6", "#ef4444"]
+const VOLUNTEER_COLORS = ["#22c55e", "#e5e7eb"]
 
 export function EventStats({ eventId }: { eventId: number }) {
-  const [taskStats, setTaskStats] = useState<TaskStats>({ completed: 0, ongoing: 0, unassigned: 0 })
+  const [taskStats, setTaskStats] = useState<TaskStats>({ 
+    completed: 0, 
+    ongoing: 0, 
+    assigned: 0, 
+    unassigned: 0 
+  })
   const [volunteerStats, setVolunteerStats] = useState<VolunteerStats>({ registered: 0, maxVolunteers: 0 })
   const [recommendedVolunteers, setRecommendedVolunteers] = useState<RecommendedVolunteer[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +72,7 @@ export function EventStats({ eventId }: { eventId: number }) {
       const stats = {
         completed: tasks.filter(t => t.task_status === "done").length,
         ongoing: tasks.filter(t => t.task_status === "doing").length,
+        assigned: tasks.filter(t => t.task_status === "to do").length,
         unassigned: tasks.filter(t => t.task_status === "unassigned").length,
       }
       setTaskStats(stats)
@@ -79,26 +99,65 @@ export function EventStats({ eventId }: { eventId: number }) {
         maxVolunteers: event.max_volunteers || 0,
       })
 
-      // Fetch recommended volunteers
-      const { data: registeredVolunteers, error: registeredError } = await supabase
+      // Get already registered volunteers for this event to exclude them
+      const { data: registeredVolunteers, error: regVolError } = await supabase
         .from("volunteer_event")
         .select("volunteer_id")
         .eq("event_id", eventId)
-        .eq("status", "registered")
-
-      if (registeredError) throw registeredError
-
-      const registeredIds = registeredVolunteers.map(v => v.volunteer_id)
-
-      const { data: recommended, error: recommendedError } = await supabase
+        .not("volunteer_id", "is", null)
+      
+      if (regVolError) throw regVolError
+      
+      const registeredIds = registeredVolunteers?.map(v => v.volunteer_id) || []
+      
+      // Get 3 random volunteers who are not already registered
+      const { data: volunteers, error: volError } = await supabase
         .from("volunteers_non_auth")
-        .select("id, full_name, age, organization, email")
-        .not("id", "in", registeredIds)
+        .select("id, full_name, organization, email")
         .limit(3)
-
-      if (recommendedError) throw recommendedError
-
-      setRecommendedVolunteers(recommended || [])
+        .order('created_at', { ascending: false })
+      
+      if (volError) throw volError
+      
+      if (!volunteers || volunteers.length === 0) {
+        setRecommendedVolunteers([])
+        return
+      }
+      
+      // For each volunteer, fetch their skills
+      const volunteersWithSkills = await Promise.all(
+        volunteers.map(async (volunteer) => {
+          // Check if volunteer already registered for this event
+          if (registeredIds.includes(volunteer.id)) {
+            return null
+          }
+          
+          // Get volunteer skills
+          const { data: volunteerSkills, error: skillsError } = await supabase
+            .from("volunteer_skills")
+            .select(`
+              skill_id,
+              skills (
+                skill_id,
+                skill,
+                skill_icon
+              )
+            `)
+            .eq("volunteer_id", volunteer.id)
+          
+          const skills = volunteerSkills?.map(item => item.skills as Skill) || []
+          
+          return {
+            ...volunteer,
+            skills
+          }
+        })
+      )
+      
+      // Filter out null values (already registered volunteers)
+      const filteredVolunteers = volunteersWithSkills.filter(v => v !== null) as RecommendedVolunteer[]
+      setRecommendedVolunteers(filteredVolunteers)
+      
     } catch (error) {
       console.error("Error fetching stats:", error)
     } finally {
@@ -106,162 +165,172 @@ export function EventStats({ eventId }: { eventId: number }) {
     }
   }
 
-  const taskData = [
-    { name: "Completed", value: taskStats.completed },
-    { name: "Ongoing", value: taskStats.ongoing },
-    { name: "Unassigned", value: taskStats.unassigned },
-  ]
-
-  const volunteerData = [
-    { name: "Registered", value: volunteerStats.registered },
-    { name: "Available", value: volunteerStats.maxVolunteers - volunteerStats.registered },
-  ]
+  // Calculate total tasks for progress bar
+  const totalTasks = taskStats.completed + taskStats.ongoing + taskStats.assigned + taskStats.unassigned || 1 // Prevent division by zero
 
   if (loading) {
     return (
-      <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Statistics</CardTitle>
-              <CardDescription>Loading...</CardDescription>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Volunteer Statistics</CardTitle>
-              <CardDescription>Loading...</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+      <div>
+        <CardDescription>Loading...</CardDescription>
       </div>
     )
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Task Statistics</CardTitle>
-            <CardDescription>Overview of task status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={taskData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {taskData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{taskStats.completed}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-500">{taskStats.ongoing}</div>
-                <div className="text-sm text-muted-foreground">Ongoing</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">{taskStats.unassigned}</div>
-                <div className="text-sm text-muted-foreground">Unassigned</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Volunteer Statistics</CardTitle>
-            <CardDescription>Volunteer registration status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={volunteerData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {volunteerData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? "#22c55e" : "#e5e7eb"} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 text-center">
-              <div className="text-2xl font-bold">
-                {volunteerStats.registered}/{volunteerStats.maxVolunteers}
-              </div>
-              <div className="text-sm text-muted-foreground">Registered Volunteers</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+    <div className="grid gap-4">
+      {/* Task Statistics */}
       <Card>
         <CardHeader>
-          <CardTitle>Recommended Volunteers</CardTitle>
-          <CardDescription>Volunteers who might be interested in this event</CardDescription>
+          <CardTitle className="text-base">Task Statistics</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Age</TableHead>
-                <TableHead>Organization</TableHead>
-                <TableHead className="text-right">Contact</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recommendedVolunteers.map((volunteer) => (
-                <TableRow key={volunteer.id}>
-                  <TableCell className="font-medium">{volunteer.full_name}</TableCell>
-                  <TableCell>{volunteer.age}</TableCell>
-                  <TableCell>{volunteer.organization}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.href = `mailto:${volunteer.email}`}
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Contact
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {recommendedVolunteers.length === 0 && (
+          <div className="space-y-2">
+            {totalTasks > 0 ? (
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div className="h-full flex">
+                  <div 
+                    className="bg-green-500" 
+                    style={{ width: `${(taskStats.completed / totalTasks) * 100}%` }}
+                  />
+                  <div 
+                    className="bg-orange-500" 
+                    style={{ width: `${(taskStats.ongoing / totalTasks) * 100}%` }}
+                  />
+                  <div 
+                    className="bg-blue-500" 
+                    style={{ width: `${(taskStats.assigned / totalTasks) * 100}%` }}
+                  />
+                  <div 
+                    className="bg-red-500" 
+                    style={{ width: `${(taskStats.unassigned / totalTasks) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="h-3 bg-muted rounded-full overflow-hidden"></div>
+            )}
+            <div className="grid grid-cols-4 gap-1 text-center">
+              <div>
+                <div className="text-base font-medium text-green-500">{taskStats.completed}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
+              </div>
+              <div>
+                <div className="text-base font-medium text-orange-500">{taskStats.ongoing}</div>
+                <div className="text-xs text-muted-foreground">In Progress</div>
+              </div>
+              <div>
+                <div className="text-base font-medium text-blue-500">{taskStats.assigned}</div>
+                <div className="text-xs text-muted-foreground">Assigned</div>
+              </div>
+              <div>
+                <div className="text-base font-medium text-red-500">{taskStats.unassigned}</div>
+                <div className="text-xs text-muted-foreground">Unassigned</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Volunteer Statistics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Volunteer Registration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[150px] flex items-center justify-center">
+            <div className="w-[200px] h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Registered", value: volunteerStats.registered },
+                      { name: "Available", value: Math.max(0, volunteerStats.maxVolunteers - volunteerStats.registered) }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    paddingAngle={2}
+                  >
+                    <Cell fill={VOLUNTEER_COLORS[0]} />
+                    <Cell fill={VOLUNTEER_COLORS[1]} />
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value} volunteers`, ""]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="mt-2 text-center">
+            <div className="text-base font-medium">
+              {volunteerStats.registered}/{volunteerStats.maxVolunteers}
+            </div>
+            <div className="text-xs text-muted-foreground">Registered Volunteers</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recommended Volunteers */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Recommended Volunteers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recommendedVolunteers.length > 0 ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No recommended volunteers found
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Skills</TableHead>
+                  <TableHead className="text-right">Contact</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recommendedVolunteers.map((volunteer) => (
+                  <TableRow key={volunteer.id}>
+                    <TableCell className="font-medium">
+                      {volunteer.full_name}
+                      {volunteer.organization && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {volunteer.organization}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {volunteer.skills && volunteer.skills.length > 0 ? (
+                          volunteer.skills.map((skill) => (
+                            <Badge key={skill.skill_id} variant="secondary" className="text-xs">
+                              {skill.skill_icon && <span className="mr-1">{skill.skill_icon}</span>}
+                              {skill.skill}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No skills listed</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <a 
+                        href={`mailto:${volunteer.email}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                      >
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              No recommended volunteers available.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
