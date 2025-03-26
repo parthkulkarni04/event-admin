@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          created_at: string | null
+          event_id: number
+          id: number
+          message: string
+          volunteer_email: string
+          volunteer_id: string | null
+          volunteer_name: string
+          volunteer_non_auth_id: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: number
+          id?: number
+          message: string
+          volunteer_email: string
+          volunteer_id?: string | null
+          volunteer_name: string
+          volunteer_non_auth_id?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: number
+          id?: number
+          message?: string
+          volunteer_email?: string
+          volunteer_id?: string | null
+          volunteer_name?: string
+          volunteer_non_auth_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_event"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_organizers: {
         Row: {
           created_at: string | null
@@ -394,7 +435,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      post_chat_message: {
+        Args: {
+          p_event_id: number
+          p_volunteer_id: string
+          p_volunteer_non_auth_id: number
+          p_volunteer_name: string
+          p_volunteer_email: string
+          p_message: string
+        }
+        Returns: {
+          created_at: string | null
+          event_id: number
+          id: number
+          message: string
+          volunteer_email: string
+          volunteer_id: string | null
+          volunteer_name: string
+          volunteer_non_auth_id: number | null
+        }
+      }
     }
     Enums: {
       [_ in never]: never

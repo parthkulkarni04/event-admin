@@ -140,7 +140,9 @@ export default function EventsPage() {
         </div>
         <CardHeader>
           <CardTitle className="line-clamp-1">{event.title}</CardTitle>
-          <CardDescription className="line-clamp-2">{event.description}</CardDescription>
+          <CardDescription className="line-clamp-2 whitespace-pre-line">
+            {event.description || "No description provided."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 text-sm">

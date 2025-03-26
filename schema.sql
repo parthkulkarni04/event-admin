@@ -1,3 +1,16 @@
+create table public.chat_messages (
+  id serial not null,
+  event_id integer not null,
+  volunteer_id uuid null,
+  volunteer_non_auth_id integer null,
+  volunteer_name text not null,
+  volunteer_email text not null,
+  message text not null,
+  created_at timestamp with time zone null default now(),
+  constraint chat_messages_pkey primary key (id),
+  constraint fk_event foreign KEY (event_id) references events (id)
+) TABLESPACE pg_default;
+
 create table public.event_organizers (
   id uuid not null,
   email text not null,
