@@ -25,6 +25,7 @@ export type Event = {
   created_at: string
 }
 
+
 export type Task = {
   task_id: number
   event_id: number

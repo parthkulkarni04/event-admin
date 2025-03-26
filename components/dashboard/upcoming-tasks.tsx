@@ -9,11 +9,17 @@ import type { Task } from "@/lib/supabase"
 
 export async function UpcomingTasks() {
   // Fetch tasks from Supabase
-  const { data: tasks, error } = await supabase
+  const { data, error } = await supabase
     .from("tasks")
     .select(`
-      *,
-      events(title)
+      task_id,
+      task_description,
+      task_status,
+      events:event_id (
+        id,
+        title,
+        start_date
+      )
     `)
     .or("task_status.eq.unassigned,task_status.eq.assigned")
     .order("created_at", { ascending: false })
@@ -31,8 +37,8 @@ export async function UpcomingTasks() {
         <CardDescription>Tasks that need attention</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {tasks && tasks.length > 0 ? (
-          tasks.map((task) => <TaskCard key={task.task_id} task={task} />)
+        {data && data.length > 0 ? (
+          data.map((task) => <TaskCard key={task.task_id} task={task} />)
         ) : (
           <p>No pending tasks found</p>
         )}

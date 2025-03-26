@@ -31,7 +31,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Calendar, CheckCircle2, Circle, Clock, Filter, Plus, Search, XCircle } from "lucide-react"
+import { Calendar, CheckCircle2, Circle, Clock, Filter, Plus, Search, XCircle, HelpCircle, Activity, CheckCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import type { Task as BaseTask, Skill } from "@/lib/supabase"
@@ -228,33 +228,30 @@ export default function TasksPage() {
     setFilteredTasks(filtered)
   }
 
-  // Define status properties
+  // Define task status configurations
   const statusConfig = {
     unassigned: {
       label: "Unassigned",
-      icon: Circle,
-      color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-      rowColor: "bg-gray-50 dark:bg-gray-900",
+      icon: HelpCircle,
+      color: "bg-gray-100 text-gray-800 hover:bg-gray-200"
     },
     assigned: {
       label: "Assigned",
       icon: Clock,
-      color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      rowColor: "bg-blue-50 dark:bg-blue-950",
+      color: "bg-amber-100 text-amber-800 hover:bg-amber-200"
     },
     inprogress: {
       label: "In Progress",
-      icon: Clock, 
-      color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      rowColor: "bg-yellow-50 dark:bg-yellow-950",
+      icon: Activity,
+      color: "bg-blue-100 text-blue-800 hover:bg-blue-200"
     },
     complete: {
       label: "Completed",
-      icon: CheckCircle2,
-      color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      rowColor: "bg-green-50 dark:bg-green-950",
-    },
-  } as const;
+      icon: CheckCircle,
+      color: "bg-green-100 text-green-800 hover:bg-green-200"
+    }
+  }
+
 
   // Default status configuration
   const defaultStatus = {
@@ -271,9 +268,28 @@ export default function TasksPage() {
     setSelectedSkills([])
   }
 
+  const handleCheckboxChange = async (taskId: number, isComplete: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ 
+          task_status: isComplete ? "complete" : "assigned", 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("task_id", taskId)
+        
+      if (error) throw error
+      
+      // Refresh the data
+      fetchData()
+    } catch (error) {
+      console.error("Error updating task status:", error)
+    }
+  }
+
   return (
     <DashboardLayout>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 m-3">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
           <Button asChild>

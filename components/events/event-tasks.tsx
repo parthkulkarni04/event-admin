@@ -4,7 +4,7 @@ import React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { CheckCircle2, Circle, Clock, Edit, Plus, Trash2, Users, HelpCircle } from "lucide-react"
+import { CheckCircle2, Circle, Clock, Edit, Plus, Trash2, Users, HelpCircle, Activity } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -32,18 +32,18 @@ export function EventTasks({ eventId }: { eventId: number }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false)
 
-  const statusIcons: Record<string, React.ElementType> = {
-    unassigned: Circle,
+  const statusIcons = {
+    unassigned: HelpCircle,
     assigned: Clock,
-    inprogress: Clock,
-    complete: CheckCircle2,
+    inprogress: Activity,
+    complete: CheckCircle2
   }
 
   const statusColors = {
-    unassigned: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-    assigned: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    inprogress: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    complete: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    unassigned: "bg-gray-100 text-gray-800",
+    assigned: "bg-amber-100 text-amber-800",
+    inprogress: "bg-blue-100 text-blue-800",
+    complete: "bg-green-100 text-green-800"
   }
 
   useEffect(() => {
@@ -204,20 +204,20 @@ export function EventTasks({ eventId }: { eventId: number }) {
 }
 
 function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
-  const statusIcons: Record<string, React.ElementType> = {
-    unassigned: Circle,
+  const statusIcons = {
+    unassigned: HelpCircle,
     assigned: Clock,
-    inprogress: Clock,
-    complete: CheckCircle2,
+    inprogress: Activity,
+    complete: CheckCircle2
   }
 
   const StatusIcon = statusIcons[task.task_status] || HelpCircle
 
   const statusColors = {
-    unassigned: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-    assigned: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    inprogress: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    complete: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    unassigned: "bg-gray-100 text-gray-800",
+    assigned: "bg-amber-100 text-amber-800",
+    inprogress: "bg-blue-100 text-blue-800",
+    complete: "bg-green-100 text-green-800"
   }
 
   return (

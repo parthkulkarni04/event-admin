@@ -17,13 +17,12 @@ import type { Task } from "@/lib/supabase"
 
 // Define the form schema with Zod
 const taskFormSchema = z.object({
-  task_description: z.string().min(2, {
-    message: "Description must be at least 2 characters.",
+  task_description: z.string().min(3, {
+    message: "Task description must be at least 3 characters."
   }),
   task_status: z.enum(["unassigned", "assigned", "inprogress", "complete"], {
     required_error: "Please select a status.",
   }),
-  volunteer_email: z.string().email().optional().or(z.literal("")),
 })
 
 type TaskFormValues = z.infer<typeof taskFormSchema>

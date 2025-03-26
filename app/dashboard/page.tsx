@@ -13,7 +13,7 @@ import { LiveEvents } from "@/components/dashboard/live-events"
 export default function DashboardPage() {
   return (
     <DashboardLayout>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 m-3">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
 
         <Suspense fallback={<StatsCardSkeleton />}>
