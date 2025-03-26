@@ -18,7 +18,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import type { Event } from "@/lib/supabase"
-import { useAccessibility } from "@/components/accessibility-provider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +81,6 @@ type EventFormValues = z.infer<typeof eventFormSchema>
 export function EventForm({ event }: { event?: Event }) {
   const router = useRouter()
   const { toast } = useToast()
-  const { speakText } = useAccessibility()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
@@ -151,9 +149,6 @@ export function EventForm({ event }: { event?: Event }) {
             : `The event has been ${status === "published" ? "published" : "updated"} successfully.`,
         })
 
-        speakText(status === "archived" 
-          ? "Event archived successfully"
-          : `Event ${status === "published" ? "published" : "updated"} successfully`)
         router.push(`/dashboard/events/${event.id}`)
       } else {
         // Create new event
@@ -181,7 +176,6 @@ export function EventForm({ event }: { event?: Event }) {
           description: `The event has been ${status === "published" ? "published" : "created"} successfully.`,
         })
 
-        speakText(`Event ${status === "published" ? "published" : "created"} successfully`)
         router.push(`/dashboard/events/${newEvent[0].id}`)
       }
     } catch (error) {
@@ -191,7 +185,6 @@ export function EventForm({ event }: { event?: Event }) {
         description: "There was an error saving the event. Please try again.",
         variant: "destructive",
       })
-      speakText("Error saving event")
     } finally {
       setIsSubmitting(false)
       setShowPublishDialog(false)
@@ -216,7 +209,6 @@ export function EventForm({ event }: { event?: Event }) {
         description: "The event has been deleted successfully.",
       })
 
-      speakText("Event deleted successfully")
       router.push("/dashboard/events")
     } catch (error) {
       console.error("Error deleting event:", error)
@@ -225,7 +217,6 @@ export function EventForm({ event }: { event?: Event }) {
         description: "There was an error deleting the event. Please try again.",
         variant: "destructive",
       })
-      speakText("Error deleting event")
     } finally {
       setIsSubmitting(false)
       setShowDeleteDialog(false)

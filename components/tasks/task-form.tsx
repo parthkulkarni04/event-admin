@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
 import type { Task } from "@/lib/supabase"
-import { useAccessibility } from "@/components/accessibility-provider"
 
 // Define the form schema with Zod
 const taskFormSchema = z.object({
@@ -32,7 +31,6 @@ type TaskFormValues = z.infer<typeof taskFormSchema>
 export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
   const router = useRouter()
   const { toast } = useToast()
-  const { speakText } = useAccessibility()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Default values for the form
@@ -82,7 +80,6 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
           description: "The task has been updated successfully.",
         })
 
-        speakText("Task updated successfully")
         router.push(`/dashboard/tasks/${task.task_id}`)
       } else if (eventId) {
         // Create new task
@@ -104,7 +101,6 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
           description: "The task has been created successfully.",
         })
 
-        speakText("Task created successfully")
         router.push(`/dashboard/events/${eventId}`)
       }
     } catch (error) {
@@ -114,7 +110,6 @@ export function TaskForm({ task, eventId }: { task?: Task; eventId?: number }) {
         description: "There was an error saving the task. Please try again.",
         variant: "destructive",
       })
-      speakText("Error saving task")
     } finally {
       setIsSubmitting(false)
     }

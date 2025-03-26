@@ -3,13 +3,12 @@
 import { useState } from "react"
 import type React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { BarChart3, Calendar, ClipboardList, Home, LogOut, Menu, Users, ChevronLeft, ChevronRight } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { BarChart3, Calendar, ClipboardList, Home, LogOut, Menu, Users, ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useAccessibility } from "@/components/accessibility-provider"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Separator } from "@/components/ui/separator"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -17,7 +16,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
-  const { speakText } = useAccessibility()
+  const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const routes = [
@@ -55,124 +54,130 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed)
-    speakText(isCollapsed ? "Expanded sidebar" : "Collapsed sidebar")
+  }
+
+  const handleLogout = () => {
+    router.push("/")
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Desktop Sidebar */}
-      <div 
-        className={cn(
-          "fixed left-0 top-0 z-30 h-screen border-r bg-background transition-all duration-300 ease-in-out",
-          isCollapsed ? "w-[70px]" : "w-[240px]"
-        )}
-      >
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          <Link
-            href="/dashboard"
-            className={cn(
-              "flex items-center gap-2 font-bold text-primary transition-opacity",
-              isCollapsed ? "opacity-0" : "opacity-100"
-            )}
-            onClick={() => speakText("Navigating to Dashboard")}
+    <div className="flex h-screen">
+      {/* Sidebar for larger screens */}
+      <div className={cn(
+        "hidden md:flex flex-col border-r bg-background transition-all duration-300",
+        isCollapsed ? "w-[70px]" : "w-64"
+      )}>
+        <div className="flex h-16 items-center justify-between px-4 border-b">
+          <div className={cn("flex items-center gap-2", isCollapsed && "justify-center w-full")}>
+            <Calendar className="h-6 w-6 text-primary" />
+            <h1 className={cn(
+              "font-bold text-lg transition-opacity", 
+              isCollapsed ? "opacity-0 w-0" : "opacity-100"
+            )}>
+              Event Admin
+            </h1>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleSidebar}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn("transition-opacity", isCollapsed && "rotate-180")}
           >
-            <Calendar className="h-6 w-6" />
-            <span className={cn(isCollapsed ? "hidden" : "block")}>Event Admin</span>
-          </Link>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8" 
-                  onClick={toggleSidebar}
-                  aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         </div>
-        <nav className="flex flex-col gap-1 p-2">
-          {routes.map((route) => (
-            <Link
-              key={route.href}
-              href={route.href}
+        
+        <div className="flex-1 overflow-auto py-4 flex flex-col justify-between">
+          <nav className="grid gap-1 px-2">
+            {routes.map((route) => (
+              <Link
+                key={route.href}
+                href={route.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent",
+                  route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+                  isCollapsed && "justify-center px-2"
+                )}
+              >
+                <route.icon className="h-5 w-5" />
+                <span className={cn("transition-opacity", isCollapsed ? "opacity-0 w-0 h-0 overflow-hidden" : "opacity-100")}>
+                  {route.label}
+                </span>
+              </Link>
+            ))}
+          </nav>
+          
+          <div className="mt-auto px-2 pb-4">
+            <Separator className="my-4" />
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-accent",
-                route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+                "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                isCollapsed && "justify-center px-2"
               )}
-              onClick={() => speakText(`Navigating to ${route.label}`)}
             >
-              <route.icon className="h-5 w-5" />
-              <span className={cn(isCollapsed ? "hidden" : "block")}>{route.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <header className="sticky top-0 z-40 border-b bg-background md:hidden">
-        <div className="container flex h-16 items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="md:hidden"
-                  aria-label="Open menu"
-                  onClick={() => speakText("Menu opened")}
-                >
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-                <nav className="flex flex-col gap-4 mt-8">
-                  {routes.map((route) => (
-                    <Link
-                      key={route.href}
-                      href={route.href}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-lg font-medium rounded-md hover:bg-accent",
-                        route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                      )}
-                      onClick={() => speakText(`Navigating to ${route.label}`)}
-                    >
-                      <route.icon className="h-5 w-5" />
-                      {route.label}
-                    </Link>
-                  ))}
-                </nav>
-              </SheetContent>
-            </Sheet>
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 font-bold text-xl text-primary"
-              onClick={() => speakText("Navigating to Dashboard")}
-            >
-              <Calendar className="h-6 w-6" />
-              <span>Event Admin</span>
-            </Link>
+              <LogOut className="h-5 w-5" />
+              <span className={cn("transition-opacity", isCollapsed ? "opacity-0 w-0 h-0 overflow-hidden" : "opacity-100")}>
+                Logout
+              </span>
+            </Button>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <div 
-        className={cn(
-          "flex flex-1 flex-col transition-all duration-300 ease-in-out", 
-          isCollapsed ? "md:ml-[70px]" : "md:ml-[240px]"
-        )}
-      >
-        <div className="container flex-1 py-8">{children}</div>
       </div>
+
+      {/* Mobile sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button className="fixed left-4 top-4 z-40 h-10 w-10 rounded-md md:hidden" size="icon" variant="outline">
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="flex h-16 items-center border-b px-6">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-6 w-6 text-primary" />
+              <h1 className="font-bold text-lg">Event Admin</h1>
+            </div>
+          </div>
+          <div className="flex flex-col h-[calc(100%-4rem)] justify-between">
+            <nav className="grid gap-1 p-4">
+              {routes.map((route) => (
+                <Link
+                  key={route.href}
+                  href={route.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:bg-accent",
+                    route.active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  <route.icon className="h-5 w-5" />
+                  {route.label}
+                </Link>
+              ))}
+            </nav>
+            
+            <div className="mt-auto p-4">
+              <Separator className="my-2" />
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="w-full flex items-center justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                <LogOut className="h-5 w-5" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Main content */}
+      <main className="flex flex-1 flex-col bg-muted/20 overflow-auto">
+        {children}
+      </main>
     </div>
   )
 }
