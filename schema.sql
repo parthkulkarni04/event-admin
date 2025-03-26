@@ -111,9 +111,9 @@ create table public.tasks (
       task_status = any (
         array[
           'unassigned'::text,
-          'to do'::text,
-          'doing'::text,
-          'done'::text
+          'assigned'::text,
+          'inprogress'::text,
+          'complete'::text
         ]
       )
     )

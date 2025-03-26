@@ -738,7 +738,7 @@ export function EventForm({ event }: { event?: Event }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Publish Event</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to publish this event? When you publish the event, all registered volunteers will be notified.
+              Are you sure you want to publish this event? When you publish the event, all volunteers will be notified.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
