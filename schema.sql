@@ -233,3 +233,20 @@ after insert on public.volunteers
 for each row
 execute function copy_new_volunteers_to_non_auth();
 
+-- Create volunteer notifications table to track emails sent
+create table public.volunteer_notifications (
+  id serial not null,
+  volunteer_email text not null,
+  event_id integer not null,
+  notification_type text not null,
+  sent_at timestamp with time zone not null default now(),
+  read_at timestamp with time zone null,
+  opened_at timestamp with time zone null,
+  clicked_at timestamp with time zone null,
+  constraint volunteer_notifications_pkey primary key (id),
+  constraint volunteer_notifications_event_id_fkey foreign key (event_id) references public.events(id) on delete cascade,
+  constraint volunteer_notifications_notification_type_check check (
+    notification_type = any (array['new_event'::text, 'reminder'::text, 'update'::text, 'cancellation'::text])
+  )
+) TABLESPACE pg_default;
+
