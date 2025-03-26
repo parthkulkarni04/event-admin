@@ -138,7 +138,7 @@ export default function TaskForm({ params }: { params: { action: string } }) {
       // First get volunteer IDs from volunteer_event table who are registered for this event
       const { data: eventVolunteers, error: eventError } = await supabase
         .from("volunteer_event")
-        .select("volunteer_id")
+        .select("volunteer_id, created_at")
         .eq("event_id", eventId)
         .eq("status", "registered")
 
@@ -147,7 +147,7 @@ export default function TaskForm({ params }: { params: { action: string } }) {
         throw eventError
       }
 
-      console.log("Event volunteers found:", eventVolunteers)
+      console.log("Event volunteers found:", eventVolunteers?.length || 0)
 
       if (!eventVolunteers?.length) {
         console.log("No registered volunteers found for this event")
@@ -157,28 +157,37 @@ export default function TaskForm({ params }: { params: { action: string } }) {
 
       const volunteerIds = eventVolunteers
         .map((v) => v.volunteer_id)
-        .filter((id): id is string => id !== null)
+        .filter(Boolean) as string[]
 
       console.log("Filtered volunteer IDs:", volunteerIds)
 
+      if (volunteerIds.length === 0) {
+        setVolunteers([])
+        return
+      }
+
       // Get volunteer details from volunteers_non_auth table
+      // The volunteer_id in volunteers_non_auth corresponds to the volunteer_id in volunteer_event
       const { data: volunteerDetails, error: volunteerError } = await supabase
         .from("volunteers_non_auth")
-        .select("id, email, full_name")
-        .in("id", volunteerIds)
+        .select("id, volunteer_id, email, full_name")
+        .in("volunteer_id", volunteerIds)
 
       if (volunteerError) {
         console.error("Error fetching volunteer details:", volunteerError)
         throw volunteerError
       }
 
-      console.log("Volunteer details found:", volunteerDetails)
+      console.log("Volunteer details found:", volunteerDetails?.length || 0)
 
       // Filter out any volunteers with missing email or name
       const validVolunteers = volunteerDetails
-        ?.filter((v): v is { id: string; email: string; full_name: string } => 
-          v.email !== null && v.full_name !== null
-        ) || []
+        ?.filter((v) => v.email !== null && v.full_name !== null)
+        .map(v => ({
+          id: v.id,
+          email: v.email as string,
+          full_name: v.full_name as string
+        })) || []
 
       console.log("Valid volunteers after filtering:", validVolunteers)
 
@@ -419,27 +428,57 @@ export default function TaskForm({ params }: { params: { action: string } }) {
                     </PopoverTrigger>
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
-                        <CommandInput placeholder="Search volunteers..." />
-                        <CommandEmpty>No volunteers found.</CommandEmpty>
-                        <CommandGroup>
-                          {volunteers.map((volunteer) => (
-                            <CommandItem
-                              key={volunteer.id}
-                              value={volunteer.id}
-                              onSelect={() => {
-                                form.setValue("volunteer_id", volunteer.id)
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span>{volunteer.full_name}</span>
-                                <span className="text-sm text-muted-foreground">{volunteer.email}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
+                        <CommandInput placeholder="Search volunteers by name or email..." />
+                        <CommandEmpty>No volunteers found for this event.</CommandEmpty>
+                        <CommandGroup heading="Registered Volunteers">
+                          {volunteers.length === 0 ? (
+                            <div className="px-2 py-3 text-sm text-muted-foreground">
+                              No volunteers have registered for this event yet.
+                            </div>
+                          ) : (
+                            volunteers.map((volunteer) => (
+                              <CommandItem
+                                key={volunteer.id}
+                                value={volunteer.full_name + " " + volunteer.email}
+                                onSelect={() => {
+                                  form.setValue("volunteer_id", volunteer.id)
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{volunteer.full_name}</span>
+                                  <span className="text-sm text-muted-foreground">{volunteer.email}</span>
+                                </div>
+                                <div className="ml-auto h-4 w-4">
+                                  {field.value === volunteer.id && (
+                                    <svg
+                                      width="15"
+                                      height="15"
+                                      viewBox="0 0 15 15"
+                                      fill="none"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        d="M11.4669 3.72684C11.7558 3.91574 11.8369 4.30308 11.648 4.59198L7.39799 11.092C7.29783 11.2452 7.13556 11.3467 6.95402 11.3699C6.77247 11.3931 6.58989 11.3355 6.45446 11.2124L3.70446 8.71241C3.44905 8.48022 3.43023 8.08494 3.66242 7.82953C3.89461 7.57412 4.28989 7.55529 4.5453 7.78749L6.75292 9.79441L10.6018 3.90792C10.7907 3.61902 11.178 3.53795 11.4669 3.72684Z"
+                                        fill="currentColor"
+                                        fillRule="evenodd"
+                                        clipRule="evenodd"
+                                      ></path>
+                                    </svg>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))
+                          )}
                         </CommandGroup>
+                        <div className="border-t border-border px-2 py-2 text-xs text-muted-foreground">
+                          Only volunteers registered for this event are shown.
+                        </div>
                       </Command>
                     </PopoverContent>
                   </Popover>
+                  <FormDescription>
+                    Assign this task to a volunteer who has registered for this event.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

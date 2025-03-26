@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase"
 import { EventTasks } from "@/components/events/event-tasks"
 import { EventStats } from "@/components/events/event-stats"
+import { EventVolunteers } from "@/components/events/event-volunteers"
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   // Fetch event details from Supabase
@@ -49,12 +50,6 @@ export default async function EventDetailPage({ params }: { params: { id: string
               <Link href={`/dashboard/events/${event.id}/tasks/new`}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Task
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/events/${event.id}/volunteers/add`}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Add Volunteer
               </Link>
             </Button>
             <Button asChild size="sm">
@@ -173,9 +168,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
                 <CardDescription>Manage volunteers for this event</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <p className="mb-4 text-muted-foreground">Volunteer management section coming soon.</p>
-                </div>
+                <EventVolunteers eventId={eventId} />
               </CardContent>
             </Card>
           </div>
