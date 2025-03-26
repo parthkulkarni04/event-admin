@@ -45,10 +45,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       active: pathname === "/dashboard/volunteers" || pathname?.startsWith("/dashboard/volunteers/"),
     },
     {
-      href: "/dashboard/analytics",
-      label: "Analytics",
+      href: "/dashboard/insights",
+      label: "Insights",
       icon: BarChart3,
-      active: pathname === "/dashboard/analytics",
+      active: pathname === "/dashboard/insights",
     },
   ]
 

@@ -69,13 +69,14 @@ export function EventStats({ eventId }: { eventId: number }) {
 
       if (tasksError) throw tasksError
 
-      const stats = {
-        completed: tasks.filter(t => t.task_status === "done").length,
-        ongoing: tasks.filter(t => t.task_status === "doing").length,
-        assigned: tasks.filter(t => t.task_status === "to do").length,
+      const taskCounts = {
+        total: tasks.length,
+        completed: tasks.filter(t => t.task_status === "complete").length,
+        ongoing: tasks.filter(t => t.task_status === "inprogress").length,
+        assigned: tasks.filter(t => t.task_status === "assigned").length,
         unassigned: tasks.filter(t => t.task_status === "unassigned").length,
       }
-      setTaskStats(stats)
+      setTaskStats(taskCounts)
 
       // Fetch volunteer stats
       const { data: event, error: eventError } = await supabase

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { format } from "date-fns"
-import { Calendar, CheckCircle2, Circle, Clock, Edit, Eye, MoreHorizontal, Trash2 } from "lucide-react"
+import { Calendar, CheckCircle2, Circle, Clock, Edit, Eye, MoreHorizontal, Trash2, HelpCircle, Activity } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -44,19 +44,19 @@ export async function TasksTable() {
 
 function TaskRow({ task }: { task: Task & { events: { title: string } } }) {
   const statusIcons = {
-    unassigned: Circle,
-    "to do": Clock,
-    doing: Clock,
-    done: CheckCircle2,
+    unassigned: HelpCircle,
+    assigned: Clock,
+    inprogress: Activity,
+    complete: CheckCircle2
   }
 
   const StatusIcon = statusIcons[task.task_status]
 
   const statusColors = {
-    unassigned: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-    "to do": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    doing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    done: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    unassigned: "bg-gray-100 text-gray-800",
+    assigned: "bg-amber-100 text-amber-800",
+    inprogress: "bg-blue-100 text-blue-800",
+    complete: "bg-green-100 text-green-800"
   }
 
   return (

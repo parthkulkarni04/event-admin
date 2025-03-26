@@ -6,7 +6,7 @@ export async function DashboardStats() {
   // Fetch stats from Supabase
   const [eventsCount, tasksCount, volunteersCount] = await Promise.all([
     supabase.from("events").select("id", { count: "exact", head: true }).eq("status", "completed"),
-    supabase.from("tasks").select("task_id", { count: "exact", head: true }).eq("task_status", "done"),
+    supabase.from("tasks").select("task_id", { count: "exact", head: true }).eq("task_status", "complete"),
     supabase.from("volunteers_non_auth").select("id", { count: "exact", head: true }),
   ])
 

@@ -231,7 +231,7 @@ export default function TaskForm({ params }: { params: { action: string } }) {
           .from("tasks")
           .update({
             task_description: data.task_description,
-            task_status: data.assign_volunteer ? "to do" : "unassigned",
+            task_status: data.assign_volunteer ? "assigned" : "unassigned",
             volunteer_id: data.assign_volunteer ? data.volunteer_id : null,
             volunteer_email: data.assign_volunteer
               ? volunteers.find((v) => v.id === data.volunteer_id)?.email || null
@@ -269,11 +269,13 @@ export default function TaskForm({ params }: { params: { action: string } }) {
           .insert({
             event_id: eventId,
             task_description: data.task_description,
-            task_status: data.assign_volunteer ? "to do" : "unassigned",
+            task_status: data.assign_volunteer ? "assigned" : "unassigned",
             volunteer_id: data.assign_volunteer ? data.volunteer_id : null,
             volunteer_email: data.assign_volunteer
               ? volunteers.find((v) => v.id === data.volunteer_id)?.email || null
               : null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           })
           .select()
           .single()

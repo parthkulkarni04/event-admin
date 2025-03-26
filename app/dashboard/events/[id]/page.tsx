@@ -38,6 +38,13 @@ export default async function EventDetailPage({ params }: { params: { id: string
   
   const statusColor = statusColors[event.status as keyof typeof statusColors] || statusColors.draft
 
+  // Calculate the completion percentage
+  const completedTasksCount = await supabase
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", params.id)
+    .eq("task_status", "complete")
+
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-6">
@@ -219,7 +226,7 @@ async function EventCompletedTaskCount({ eventId }: { eventId: number }) {
     .from("tasks")
     .select("task_id", { count: "exact", head: true })
     .eq("event_id", eventId)
-    .eq("task_status", "done")
+    .eq("task_status", "complete")
 
   return <>{count || 0}</>
 }
