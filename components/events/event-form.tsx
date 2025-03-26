@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2, Save, Send, Clock, MapPin, Users, Image as ImageIcon, Archive } from "lucide-react"
+import { CalendarIcon, Loader2, Save, Send, Clock, MapPin, Users, Image as ImageIcon, Archive, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -18,7 +18,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import type { Event } from "@/lib/supabase"
-import { useAccessibility } from "@/components/accessibility-provider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,10 +81,11 @@ type EventFormValues = z.infer<typeof eventFormSchema>
 export function EventForm({ event }: { event?: Event }) {
   const router = useRouter()
   const { toast } = useToast()
-  const { speakText } = useAccessibility()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [showArchiveDialog, setShowArchiveDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
 
   // Default values for the form
   const defaultValues: Partial<EventFormValues> = {
@@ -149,9 +149,6 @@ export function EventForm({ event }: { event?: Event }) {
             : `The event has been ${status === "published" ? "published" : "updated"} successfully.`,
         })
 
-        speakText(status === "archived" 
-          ? "Event archived successfully"
-          : `Event ${status === "published" ? "published" : "updated"} successfully`)
         router.push(`/dashboard/events/${event.id}`)
       } else {
         // Create new event
@@ -179,7 +176,6 @@ export function EventForm({ event }: { event?: Event }) {
           description: `The event has been ${status === "published" ? "published" : "created"} successfully.`,
         })
 
-        speakText(`Event ${status === "published" ? "published" : "created"} successfully`)
         router.push(`/dashboard/events/${newEvent[0].id}`)
       }
     } catch (error) {
@@ -189,11 +185,42 @@ export function EventForm({ event }: { event?: Event }) {
         description: "There was an error saving the event. Please try again.",
         variant: "destructive",
       })
-      speakText("Error saving event")
     } finally {
       setIsSubmitting(false)
       setShowPublishDialog(false)
       setShowArchiveDialog(false)
+    }
+  }
+
+  async function handleDeleteEvent() {
+    if (!event) return
+
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", event.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Event deleted",
+        description: "The event has been deleted successfully.",
+      })
+
+      router.push("/dashboard/events")
+    } catch (error) {
+      console.error("Error deleting event:", error)
+      toast({
+        title: "Error",
+        description: "There was an error deleting the event. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+      setShowDeleteDialog(false)
+      setShowDeleteConfirmDialog(false)
     }
   }
 
@@ -479,17 +506,29 @@ export function EventForm({ event }: { event?: Event }) {
           >
             Cancel
           </Button>
-          {event && ( // Only show Archive button for existing events
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowArchiveDialog(true)}
-              disabled={isSubmitting}
-              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              Archive Event
-            </Button>
+          {event && ( // Only show Delete and Archive buttons for existing events
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isSubmitting}
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Event
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowArchiveDialog(true)}
+                disabled={isSubmitting}
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive Event
+              </Button>
+            </>
           )}
           <Button
             type="button"
@@ -546,6 +585,53 @@ export function EventForm({ event }: { event?: Event }) {
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Archive Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* First Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this event? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setShowDeleteConfirmDialog(true)
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Second Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the event and all associated data. Are you absolutely sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEvent}
+              disabled={isSubmitting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Yes, Delete Event
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

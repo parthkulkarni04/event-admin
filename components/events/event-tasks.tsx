@@ -4,7 +4,7 @@ import React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { CheckCircle2, Circle, Clock, Edit, Plus, Trash2, Users } from "lucide-react"
+import { CheckCircle2, Circle, Clock, Edit, Plus, Trash2, Users, HelpCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -26,13 +26,13 @@ interface Task extends BaseTask {
 
 export function EventTasks({ eventId }: { eventId: number }) {
   const router = useRouter()
-  const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false)
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(true)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false)
 
-  const statusIcons = {
+  const statusIcons: Record<string, React.ElementType> = {
     unassigned: Circle,
     "to do": Clock,
     doing: Clock,
@@ -140,7 +140,7 @@ export function EventTasks({ eventId }: { eventId: number }) {
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-medium">{selectedTask.task_description}</h3>
                 <Badge variant="outline" className={statusColors[selectedTask.task_status]}>
-                  {React.createElement(statusIcons[selectedTask.task_status], { className: "mr-1 h-3 w-3" })}
+                  {React.createElement(statusIcons[selectedTask.task_status] || HelpCircle, { className: "mr-1 h-3 w-3" })}
                   {selectedTask.task_status}
                 </Badge>
               </div>
@@ -204,14 +204,14 @@ export function EventTasks({ eventId }: { eventId: number }) {
 }
 
 function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
-  const statusIcons = {
+  const statusIcons: Record<string, React.ElementType> = {
     unassigned: Circle,
     "to do": Clock,
     doing: Clock,
     done: CheckCircle2,
   }
 
-  const StatusIcon = statusIcons[task.task_status]
+  const StatusIcon = statusIcons[task.task_status] || HelpCircle
 
   const statusColors = {
     unassigned: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",

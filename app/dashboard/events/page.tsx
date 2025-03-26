@@ -128,40 +128,60 @@ export default function EventsPage() {
     published: filteredEvents.filter(e => e.status === "published"),
     archived: filteredEvents.filter(e => e.status === "archived"),
   }
-
-  const EventCard = ({ event }: { event: EventWithVolunteers }) => {
-    const progress = event.max_volunteers 
-      ? (event.registeredVolunteers / event.max_volunteers) * 100 
-      : 0
-
-    return (
-      <Card className="overflow-hidden transition-all hover:shadow-md">
-        <Link href={`/dashboard/events/${event.id}`}>
-          <div className="relative h-48 w-full">
-            {event.thumbnail_image ? (
-              <Image
-                src={event.thumbnail_image}
-                alt={event.title}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-muted">
-                <Calendar className="h-12 w-12 text-muted-foreground" />
-              </div>
-            )}
-            <Badge
-              className="absolute right-2 top-2"
-              variant={
-                event.status === "draft"
-                  ? "secondary"
-                  : event.status === "published"
-                  ? "default"
-                  : "outline"
-              }
-            >
-              {event.status}
-            </Badge>
+  
+  const EventCard = ({ event }: { event: Event }) => (
+    <Card className="overflow-hidden transition-all hover:shadow-md">
+      <Link href={`/dashboard/events/${event.id}`}>
+        <div className="relative h-48 w-full">
+          {event.thumbnail_image ? (
+            <Image
+              src={event.thumbnail_image}
+              alt={event.title}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted">
+              <Calendar className="h-12 w-12 text-muted-foreground" />
+            </div>
+          )}
+          <Badge
+            className="absolute right-2 top-2"
+            variant={
+              event.status === "draft"
+                ? "secondary"
+                : event.status === "published"
+                ? "default"
+                : "outline"
+            }
+          >
+            {event.status}
+          </Badge>
+        </div>
+        <CardHeader>
+          <CardTitle className="line-clamp-1">{event.title}</CardTitle>
+          <CardDescription className="line-clamp-2 whitespace-pre-line">
+            {event.description || "No description provided."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{event.location} ({event.location_type})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              <span>{format(new Date(event.start_date), "PPP")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>{format(new Date(event.start_date), "p")} - {format(new Date(event.end_date), "p")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span>Max {event.max_volunteers || "∞"} volunteers</span>
+            </div>
           </div>
           <CardHeader>
             <CardTitle className="line-clamp-1">{event.title}</CardTitle>
