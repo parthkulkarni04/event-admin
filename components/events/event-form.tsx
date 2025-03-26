@@ -82,6 +82,69 @@ const eventFormSchema = z
 
 type EventFormValues = z.infer<typeof eventFormSchema>
 
+// Email template for new event notifications
+const createEmailTemplate = (event: Event, registerUrl: string) => {
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .email-container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+          .header { background-color: #4f46e5; color: white; padding: 15px; border-radius: 5px 5px 0 0; text-align: center; }
+          .content { padding: 20px; }
+          .event-image { width: 100%; height: auto; border-radius: 5px; margin-bottom: 20px; }
+          .event-detail { margin-bottom: 10px; }
+          .detail-label { font-weight: bold; }
+          .register-button { display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+          .footer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <h1>New Volunteer Event</h1>
+          </div>
+          <div class="content">
+            <h2>${event.title}</h2>
+            ${event.thumbnail_image ? `<img src="${event.thumbnail_image}" alt="${event.title}" class="event-image"/>` : ''}
+            
+            <div class="event-detail">
+              <p>${event.description || 'No description provided.'}</p>
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">📍 Location:</span> ${event.location} (${event.location_type === 'physical' ? 'In-person' : 'Virtual'})
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">📅 Date:</span> ${format(new Date(event.start_date), "PPP")} to ${format(new Date(event.end_date), "PPP")}
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">⏰ Time:</span> ${format(new Date(event.start_date), "h:mm a")} to ${format(new Date(event.end_date), "h:mm a")}
+            </div>
+            
+            <div class="event-detail">
+              <span class="detail-label">👥 Volunteers Needed:</span> ${event.max_volunteers}
+            </div>
+            
+            ${event.registration_deadline ? 
+              `<div class="event-detail">
+                <span class="detail-label">⏳ Registration Deadline:</span> ${format(new Date(event.registration_deadline), "PPP")}
+              </div>` : ''}
+            
+            <a href="${registerUrl}" class="register-button">Register Now</a>
+            
+            <div class="footer">
+              <p>You're receiving this email because you're registered as a volunteer. If you no longer wish to receive these notifications, please update your preferences.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
 export function EventForm({ event }: { event?: Event }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -201,6 +264,67 @@ export function EventForm({ event }: { event?: Event }) {
     }
   }
 
+  // Send emails to all volunteers
+  const sendEventEmails = async (eventData: Event) => {
+    try {
+      // 1. Fetch all volunteer emails from volunteers_non_auth table
+      const { data: volunteers, error: fetchError } = await supabase
+        .from('volunteers_non_auth')
+        .select('email')
+      
+      if (fetchError) throw fetchError
+      
+      if (!volunteers || volunteers.length === 0) {
+        console.log("No volunteers found to email")
+        return
+      }
+      
+      // Create the register URL (adjust based on your application's routing)
+      const baseUrl = window.location.origin
+      const registerUrl = `${baseUrl}/events/${eventData.id}/register`
+      
+      // 2. Create email template with event details
+      const emailTemplate = createEmailTemplate(eventData, registerUrl)
+      
+      // 3. Send emails to all volunteers
+      // Note: We're using server action to handle the email sending
+      const response = await fetch('/api/send-event-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          volunteers: volunteers,
+          subject: `New Volunteer Event: ${eventData.title}`,
+          htmlContent: emailTemplate,
+          eventId: eventData.id
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to send emails')
+      }
+      
+      // 4. Update the event to mark email_sent as true
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ email_sent: true })
+        .eq('id', eventData.id)
+      
+      if (updateError) throw updateError
+      
+      return true
+    } catch (error) {
+      console.error('Error sending volunteer emails:', error)
+      toast({
+        title: "Email Notification Error",
+        description: "There was an error sending notification emails to volunteers.",
+        variant: "destructive"
+      })
+      return false
+    }
+  }
+
   async function onSubmit(data: EventFormValues, status: "draft" | "published" | "archived" = "draft") {
     setIsSubmitting(true)
 
@@ -217,12 +341,13 @@ export function EventForm({ event }: { event?: Event }) {
       // Handle image upload if there's a file
       let thumbnailUrl = data.thumbnail_image
       if (data.thumbnail_source === 'upload' && imageFile) {
-        thumbnailUrl = await uploadImage(imageFile)
+        const uploadedUrl = await uploadImage(imageFile)
+        thumbnailUrl = uploadedUrl || undefined // Fix for type error
       }
 
       if (event) {
         // Update existing event
-        const { error } = await supabase
+        const { data: updatedEvent, error } = await supabase
           .from("events")
           .update({
             title: data.title,
@@ -238,8 +363,31 @@ export function EventForm({ event }: { event?: Event }) {
             status,
           })
           .eq("id", event.id)
+          .select()
 
         if (error) throw error
+        
+        // If publishing event, send emails to volunteers
+        if (status === "published") {
+          // Create a proper Event object with all required fields
+          const eventToEmail: Event = {
+            id: event.id,
+            title: data.title,
+            location: data.location,
+            location_type: data.location_type,
+            description: data.description || null,
+            thumbnail_image: thumbnailUrl || null,
+            event_category: data.event_category,
+            start_date: startDateTime.toISOString(),
+            end_date: endDateTime.toISOString(),
+            registration_deadline: data.registration_deadline?.toISOString() || null,
+            max_volunteers: data.max_volunteers,
+            status: status,
+            email_sent: false,
+            created_at: event.created_at
+          };
+          await sendEventEmails(eventToEmail);
+        }
 
         toast({
           title: "Event updated",
@@ -265,10 +413,16 @@ export function EventForm({ event }: { event?: Event }) {
             registration_deadline: data.registration_deadline?.toISOString() || null,
             max_volunteers: data.max_volunteers,
             status,
+            email_sent: false, // Initialize as false
           })
           .select()
 
         if (error) throw error
+        
+        // If publishing a new event, send emails to volunteers
+        if (status === "published" && newEvent && newEvent.length > 0) {
+          await sendEventEmails(newEvent[0] as Event)
+        }
 
         toast({
           title: "Event created",
