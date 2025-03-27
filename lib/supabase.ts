@@ -15,7 +15,7 @@ export type Event = {
   location_type: "virtual" | "physical"
   description: string | null
   thumbnail_image: string | null
-  event_category: "A" | "B" | "C" | "D" | "E"
+  event_category: "Education" | "Blog" | "Culture" | "Rehabilitation" | "Environment" | "Audio Recording" | "Field Work" | "Sports" | "Employment & Entrepreneurship"
   start_date: string
   end_date: string
   registration_deadline: string | null

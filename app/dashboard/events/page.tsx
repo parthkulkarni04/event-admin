@@ -37,7 +37,7 @@ type Event = {
   location_type: "virtual" | "physical"
   description: string | null
   thumbnail_image: string | null
-  event_category: "A" | "B" | "C" | "D" | "E"
+  event_category: "Education" | "Blog" | "Culture" | "Rehabilitation" | "Environment" | "Audio Recording" | "Field Work" | "Sports" | "Employment & Entrepreneurship"
   start_date: string
   end_date: string
   registration_deadline: string | null
@@ -48,11 +48,15 @@ type Event = {
 }
 
 const categoryLabels = {
-  A: "Category A",
-  B: "Category B",
-  C: "Category C",
-  D: "Category D",
-  E: "Category E",
+  "Education": "Education",
+  "Blog": "Blog",
+  "Culture": "Culture",
+  "Rehabilitation": "Rehabilitation",
+  "Environment": "Environment",
+  "Audio Recording": "Audio Recording",
+  "Field Work": "Field Work",
+  "Sports": "Sports",
+  "Employment & Entrepreneurship": "Employment & Entrepreneurship"
 }
 
 export default function EventsPage() {
