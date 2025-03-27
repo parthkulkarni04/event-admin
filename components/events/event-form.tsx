@@ -133,7 +133,7 @@ const createEmailTemplate = (event: Event, registerUrl: string) => {
                 <span class="detail-label">⏳ Registration Deadline:</span> ${format(new Date(event.registration_deadline), "PPP")}
               </div>` : ''}
             
-            <a href="${registerUrl}" class="register-button">Register Now</a>
+            <a href="https://volunteer-sevaconnect.vercel.app/dashboard/events" class="register-button">Register for the Event</a>
             
             <div class="footer">
               <p>You're receiving this email because you're registered as a volunteer. If you no longer wish to receive these notifications, please update your preferences.</p>
