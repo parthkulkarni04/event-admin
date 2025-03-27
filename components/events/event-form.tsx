@@ -47,7 +47,7 @@ const eventFormSchema = z
     description: z.string().optional(),
     thumbnail_image: z.string().url().optional().or(z.literal("")),
     thumbnail_source: z.enum(["url", "upload"]).default("url"),
-    event_category: z.enum(["A", "B", "C", "D", "E"], {
+    event_category: z.enum(["Education", "Blog", "Culture", "Rehabilitation", "Environment", "Audio Recording", "Field Work", "Sports", "Employment & Entrepreneurship"], {
       required_error: "Please select an event category.",
     }),
     start_date: z.date({
@@ -169,7 +169,7 @@ export function EventForm({ event }: { event?: Event }) {
     description: event?.description || "",
     thumbnail_image: event?.thumbnail_image || "",
     thumbnail_source: event?.thumbnail_image ? "url" : "upload",
-    event_category: event?.event_category || "A",
+    event_category: event?.event_category || "Education",
     start_date: event?.start_date ? new Date(event.start_date) : new Date(),
     start_time: event?.start_date ? format(new Date(event.start_date), "HH:mm") : "09:00",
     end_date: event?.end_date ? new Date(event.end_date) : new Date(),
@@ -672,11 +672,15 @@ export function EventForm({ event }: { event?: Event }) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="A">Category A</SelectItem>
-                    <SelectItem value="B">Category B</SelectItem>
-                    <SelectItem value="C">Category C</SelectItem>
-                    <SelectItem value="D">Category D</SelectItem>
-                    <SelectItem value="E">Category E</SelectItem>
+                    <SelectItem value="Education">Education</SelectItem>
+                    <SelectItem value="Blog">Blog</SelectItem>
+                    <SelectItem value="Culture">Culture</SelectItem>
+                    <SelectItem value="Rehabilitation">Rehabilitation</SelectItem>
+                    <SelectItem value="Environment">Environment</SelectItem>
+                    <SelectItem value="Audio Recording">Audio Recording</SelectItem>
+                    <SelectItem value="Field Work">Field Work</SelectItem>
+                    <SelectItem value="Sports">Sports</SelectItem>
+                    <SelectItem value="Employment & Entrepreneurship">Employment & Entrepreneurship</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>The category of the event.</FormDescription>

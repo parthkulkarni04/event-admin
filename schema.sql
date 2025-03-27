@@ -47,11 +47,15 @@ create table public.events (
     (
       event_category = any (
         array[
-          'A'::text,
-          'B'::text,
-          'C'::text,
-          'D'::text,
-          'E'::text
+          'Education'::text,
+          'Blog'::text,
+          'Culture'::text,
+          'Rehabilitation'::text,
+          'Environment'::text,
+          'Audio Recording'::text,
+          'Field Work'::text,
+          'Sports'::text,
+          'Employment & Entrepreneurship'::text
         ]
       )
     )
